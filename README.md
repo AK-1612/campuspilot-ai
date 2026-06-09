@@ -1,4 +1,4 @@
-# campuspilot-ai
+# CampusPilot AI
 
 Agentic AI-powered accessible campus navigation — LLM agent, QR indoor positioning, 5 disability profiles, offline-first PWA. Built for Capgemini Build-a-thon 2026.
 
@@ -23,8 +23,11 @@ Agentic AI-powered accessible campus navigation — LLM agent, QR indoor positio
 ![FastAPI](https://img.shields.io/badge/FastAPI-121011?style=flat&logo=fastapi&logoColor=white)
 ![React PWA](https://img.shields.io/badge/React_PWA-121011?style=flat&logo=react&logoColor=white)
 
-## Architecture
-*(Insert Architecture Diagram Image Here)*
+## AI Agent Architecture (Backend)
+The backend utilizes an **Agentic Flow** driven by Claude 3 Haiku via LangChain. 
+- **Tools**: The agent dynamically calls tools (`route_query`, `qr_lookup`, `profile_detect`, `flag_obstacle`) to calculate routes inside the Neo4j graph.
+- **Memory**: It maintains contextual state across conversations (e.g. your last scanned QR code, active disability profile).
+- **Intents**: Queries are pre-classified (navigation vs. emergency) to ensure lightning-fast responses and strict fallbacks.
 
 ## Setup Instructions
 
@@ -35,13 +38,18 @@ Agentic AI-powered accessible campus navigation — LLM agent, QR indoor positio
 
 ### Environment Variables
 1. Copy `.env.example` to `.env`
-2. Fill in the required values. **DO NOT commit your `.env` file.**
+2. Fill in the required values (e.g., `ANTHROPIC_API_KEY`). **DO NOT commit your `.env` file.**
 
 ### How to run Backend
 ```bash
+# 1. Move into the backend directory
 cd backend
-# Setup virtual environment and install dependencies
-# Start the FastAPI server
+
+# 2. Install the required Python packages
+pip3 install -r requirements.txt
+
+# 3. Start the FastAPI server (coming soon)
+# uvicorn main:app --reload
 ```
 
 ### How to run Frontend
