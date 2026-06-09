@@ -35,12 +35,27 @@ export default function QRScanner({ onScanSuccess, onCancel }: QRScannerProps) {
 
   // Request camera access on mount
   useEffect(() => {
+    let active = true;
+    let localStream: MediaStream | null = null;
+
     async function startCamera() {
       try {
         setCameraError(null);
+        
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+          throw new Error('Camera access API is not supported in this browser environment or is blocked by security policies');
+        }
+
         const mediaStream = await navigator.mediaDevices.getUserMedia({
           video: { facingMode: 'environment' }
         });
+        
+        if (!active) {
+          mediaStream.getTracks().forEach(track => track.stop());
+          return;
+        }
+
+        localStream = mediaStream;
         setStream(mediaStream);
         setCameraActive(true);
         if (videoRef.current) {
@@ -48,17 +63,19 @@ export default function QRScanner({ onScanSuccess, onCancel }: QRScannerProps) {
         }
       } catch (err: any) {
         console.warn('Camera access denied or unavailable. Fallback to simulator.', err);
-        setCameraError(err.message || 'Camera blocked or unsupported by hardware');
-        setCameraActive(false);
+        if (active) {
+          setCameraError(err.message || 'Camera blocked or unsupported by hardware');
+          setCameraActive(false);
+        }
       }
     }
     
     startCamera();
     
     return () => {
-      // Clean up camera stream tracks
-      if (stream) {
-        stream.getTracks().forEach(track => track.stop());
+      active = false;
+      if (localStream) {
+        localStream.getTracks().forEach(track => track.stop());
       }
     };
   }, []);
@@ -145,12 +162,7 @@ export default function QRScanner({ onScanSuccess, onCancel }: QRScannerProps) {
             }
           `}</style>
 
-          <div className="text-center bg-black/60 backdrop-blur-sm px-4 py-2.5 rounded-xl border border-zinc-800/80 shadow-md">
-            <QrCode className="w-6 h-6 text-teal-400 mx-auto mb-1 animate-pulse" />
-            <span className="text-[11px] tracking-wider font-extrabold uppercase text-zinc-300">
-              {loading ? 'Decrypting...' : 'Scanning active'}
-            </span>
-          </div>
+
         </div>
       </div>
 
