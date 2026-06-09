@@ -1,0 +1,18 @@
+{
+  "short_name": "CampusPilot AI",
+  "name": "CampusPilot AI - Accessibility-First Campus Navigation",
+  "description": "Accessible, mobile-optimized campus routing and guidance agent.",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#fafafa",
+  "theme_color": "#002f5c",
+  "icons": [
+    {
+      "src": "https://lh3.googleusercontent.com/aida-public/AB6AXuBc63YJ89evjA0LYbpXwN7waJXNQ6uoKuIxsRje4YSiE6hWIQwMfL6_E1pyPl6zgsOjrW89sgojW_kg5el0fbb-9VUusvEzx3UqDdEECI-ZPSEmby9rKyOId4nu3nzOvWuM6CvgMXC0vTL2XLuSaafQoNvTOK6MIghPO4k3A6obsWt06xzVxfe8_6sQIBlovVtH2zd_I6sA1ph2j-fV6cgvqQUF1DLd-malqznE0ldZualZNpRhHTFvRkhKf14jGXJ0AUqYZJSaVA8",
+      "type": "image/png",
+      "sizes": "512x512",
+      "purpose": "any maskable"
+    }
+  ]
+}

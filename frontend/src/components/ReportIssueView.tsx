@@ -4,9 +4,10 @@
  */
 
 import React, { useState } from 'react';
-import { ArrowLeft, Camera, Send, CheckCircle, MapPin, Droplet, MoreHorizontal } from 'lucide-react';
+import { ArrowLeft, Camera, Send, CheckCircle, MapPin, Droplet, MoreHorizontal, AlertCircle } from 'lucide-react';
 import { HazardIssue } from '../types';
 import { INITIAL_ISSUES } from '../data';
+import { uploadToCloudinary } from '../services/api';
 
 interface ReportIssueViewProps {
   onBackClick?: () => void;
@@ -65,8 +66,86 @@ export default function ReportIssueView({
   const [locationValue, setLocationValue] = useState(initialLocation);
   const [additionalDetails, setAdditionalDetails] = useState('');
   const [photoAttached, setPhotoAttached] = useState(false);
+  const [photoPreviewUrl, setPhotoPreviewUrl] = useState<string | null>(null);
+  const [photoFileOrData, setPhotoFileOrData] = useState<File | string | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const [showPhotoOptions, setShowPhotoOptions] = useState(false);
   const [submissionFeedback, setSubmissionFeedback] = useState(false);
   const [activeReports, setActiveReports] = useState<HazardIssue[]>(INITIAL_ISSUES);
+
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
+  const [isCameraActive, setIsCameraActive] = useState(false);
+  const [videoStream, setVideoStream] = useState<MediaStream | null>(null);
+  const videoRef = React.useRef<HTMLVideoElement>(null);
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (photoPreviewUrl) {
+        URL.revokeObjectURL(photoPreviewUrl);
+      }
+      const url = URL.createObjectURL(file);
+      setPhotoPreviewUrl(url);
+      setPhotoFileOrData(file);
+      setPhotoAttached(true);
+      setShowPhotoOptions(false);
+    }
+  };
+
+  const startCamera = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'environment' }
+      });
+      setVideoStream(stream);
+      setIsCameraActive(true);
+      setShowPhotoOptions(false);
+      setTimeout(() => {
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+        }
+      }, 100);
+    } catch (err) {
+      console.error("Camera access failed, falling back to manual upload:", err);
+      // Fallback: trigger standard file upload
+      fileInputRef.current?.click();
+      setShowPhotoOptions(false);
+    }
+  };
+
+  const capturePhoto = () => {
+    if (videoRef.current && videoStream) {
+      const canvas = document.createElement('canvas');
+      canvas.width = videoRef.current.videoWidth || 640;
+      canvas.height = videoRef.current.videoHeight || 480;
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
+        const dataUrl = canvas.toDataURL('image/jpeg');
+        setPhotoPreviewUrl(dataUrl);
+        setPhotoFileOrData(dataUrl);
+        setPhotoAttached(true);
+      }
+      stopCamera();
+    }
+  };
+
+  const stopCamera = () => {
+    if (videoStream) {
+      videoStream.getTracks().forEach(track => track.stop());
+      setVideoStream(null);
+    }
+    setIsCameraActive(false);
+  };
+
+  React.useEffect(() => {
+    return () => {
+      if (videoStream) {
+        videoStream.getTracks().forEach(track => track.stop());
+      }
+    };
+  }, [videoStream]);
 
   const renderCategoryIcon = (id: string, className: string) => {
     switch (id) {
@@ -87,35 +166,52 @@ export default function ReportIssueView({
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setIsUploading(true);
+    setUploadError(null);
 
-    const matchedCategory = CATEGORIES.find(c => c.id === selectedCategory);
-    const typeName = matchedCategory ? matchedCategory.label : 'Other issue';
-
-    const newIssue: HazardIssue = {
-      id: `issue-${Date.now()}`,
-      type: (selectedCategory as any) || 'other',
-      typeName,
-      location: locationValue || 'Campus Walkway',
-      details: additionalDetails || 'No details specified',
-      photoAttached,
-      timestamp: new Date().toISOString(),
-      isCustom: true
-    };
-
-    setSubmissionFeedback(true);
-    setActiveReports(prev => [newIssue, ...prev]);
-
-    setTimeout(() => {
-      setSubmissionFeedback(false);
-      setSelectedCategory('');
-      setAdditionalDetails('');
-      setPhotoAttached(false);
-      if (onSubmitSuccess) {
-        onSubmitSuccess(newIssue);
+    let imageUrl = undefined;
+    try {
+      if (photoAttached && photoFileOrData) {
+        imageUrl = await uploadToCloudinary(photoFileOrData);
       }
-    }, 2500);
+
+      const matchedCategory = CATEGORIES.find(c => c.id === selectedCategory);
+      const typeName = matchedCategory ? matchedCategory.label : 'Other issue';
+
+      const newIssue: HazardIssue = {
+        id: `issue-${Date.now()}`,
+        type: (selectedCategory as any) || 'other',
+        typeName,
+        location: locationValue || 'Campus Walkway',
+        details: additionalDetails || 'No details specified',
+        photoAttached,
+        photoUrl: imageUrl,
+        timestamp: new Date().toISOString(),
+        isCustom: true
+      };
+
+      setSubmissionFeedback(true);
+      setActiveReports(prev => [newIssue, ...prev]);
+
+      setTimeout(() => {
+        setSubmissionFeedback(false);
+        setSelectedCategory('');
+        setAdditionalDetails('');
+        setPhotoAttached(false);
+        setPhotoPreviewUrl(null);
+        setPhotoFileOrData(null);
+        if (onSubmitSuccess) {
+          onSubmitSuccess(newIssue);
+        }
+      }, 2500);
+    } catch (err: any) {
+      console.error('Cloudinary upload failed', err);
+      setUploadError(err.message || 'Failed to upload photo. Please check your config.');
+    } finally {
+      setIsUploading(false);
+    }
   };
 
   return (
@@ -213,35 +309,144 @@ export default function ReportIssueView({
           ></textarea>
         </div>
 
+        {/* Hidden File input */}
+        <input
+          type="file"
+          accept="image/*"
+          ref={fileInputRef}
+          onChange={handleFileChange}
+          className="hidden"
+        />
+
         {/* Action / Photo Attach */}
         <div className="flex items-center gap-4 pt-3 border-t border-zinc-100">
-          <button
-            type="button"
-            onClick={() => setPhotoAttached(prev => !prev)}
-            aria-label="Add photo"
-            className={`flex-shrink-0 flex items-center justify-center w-12 h-12 rounded-full transition-colors active:scale-95 ${
-              photoAttached
-                ? 'bg-emerald-500 text-white animate-pulse'
-                : 'bg-[#e2dfff] text-[#002f5c] hover:bg-indigo-100'
-            }`}
-          >
-            <Camera className="w-5 h-5" />
-          </button>
+          {photoAttached && photoPreviewUrl ? (
+            <div className="relative h-12 w-12 rounded-xl overflow-hidden border border-zinc-200 shrink-0 group">
+              <img src={photoPreviewUrl} alt="Preview" className="h-full w-full object-cover" />
+              <button
+                type="button"
+                onClick={() => {
+                  if (photoPreviewUrl) URL.revokeObjectURL(photoPreviewUrl);
+                  setPhotoAttached(false);
+                  setPhotoPreviewUrl(null);
+                  setPhotoFileOrData(null);
+                }}
+                className="absolute inset-0 bg-black/60 hover:bg-black/80 flex items-center justify-center text-white text-[10px] font-bold transition-colors"
+              >
+                Delete
+              </button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setShowPhotoOptions(true)}
+              aria-label="Add photo"
+              className="flex-shrink-0 flex items-center justify-center w-12 h-12 rounded-full bg-[#e2dfff] text-[#002f5c] hover:bg-indigo-100 transition-colors active:scale-95"
+            >
+              <Camera className="w-5 h-5" />
+            </button>
+          )}
           <span className="font-sans text-xs text-zinc-500 font-medium text-left">
-            {photoAttached ? '✓ Photo added (Simulated_Cam_IMG.jpg)' : 'Add a photo to help us locate the issue.'}
+            {photoAttached ? '✓ Photo attached' : 'Add a photo to help us locate the issue.'}
           </span>
         </div>
+
+        {/* Modal for Photo Options */}
+        {showPhotoOptions && (
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] flex items-end justify-center">
+            <div className="w-full max-w-md bg-white rounded-t-3xl p-6 shadow-2xl animate-slide-up text-center">
+              <div className="w-12 h-1.5 bg-zinc-200 rounded-full mx-auto mb-6" />
+              <h3 className="text-base font-extrabold text-[#002f5c] mb-6">Attach Photo</h3>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <button
+                  type="button"
+                  onClick={startCamera}
+                  className="flex flex-col items-center justify-center p-5 bg-zinc-50 border border-zinc-200 rounded-2xl hover:bg-zinc-100 transition-colors cursor-pointer"
+                >
+                  <Camera className="w-8 h-8 text-[#002f5c] mb-2" />
+                  <span className="text-xs font-bold text-[#002f5c]">Take Photo</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="flex flex-col items-center justify-center p-5 bg-zinc-50 border border-zinc-200 rounded-2xl hover:bg-zinc-100 transition-colors cursor-pointer"
+                >
+                  <svg className="w-8 h-8 text-[#002f5c] mb-2" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 15a4.5 4.5 0 0 0 4.5 4.5H18a3.75 3.75 0 0 0 1.332-7.257 3 3 0 0 0-3.758-3.848 5.25 5.25 0 0 0-10.233 2.33A4.502 4.502 0 0 0 2.25 12c0 .324.086.63.25.9a4.5 4.5 0 0 0-.25 2.1z" />
+                  </svg>
+                  <span className="text-xs font-bold text-[#002f5c]">Upload File</span>
+                </button>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setShowPhotoOptions(false)}
+                className="w-full mt-5 h-12 bg-zinc-100 hover:bg-zinc-200 text-zinc-650 font-bold rounded-xl text-xs uppercase tracking-wider transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Error Dialog Banner */}
+        {uploadError && (
+          <div className="bg-red-50 border border-red-200 text-red-600 rounded-2xl p-4 flex items-start gap-3 shadow-sm text-xs font-semibold mb-4">
+            <AlertCircle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
+            <span>{uploadError}</span>
+          </div>
+        )}
 
         {/* Submit */}
         <button
           type="submit"
-          disabled={!selectedCategory}
+          disabled={!selectedCategory || isUploading}
           className="w-full h-14 bg-[#002f5c] disabled:bg-zinc-300 disabled:dark:bg-zinc-800 text-white disabled:text-zinc-500 font-sans font-bold rounded-full flex items-center justify-center gap-2 cursor-pointer hover:bg-[#002447] transition-all active:scale-[0.98] shadow-md mt-6"
         >
           <Send className="w-4 h-4 transform rotate-0" />
-          Submit Report
+          {isUploading ? 'Uploading photo & submitting...' : 'Submit Report'}
         </button>
       </form>
+
+      {/* Live Camera View Overlay */}
+      {isCameraActive && (
+        <div className="fixed inset-0 bg-black z-[9999] flex flex-col justify-between p-6 text-white text-center">
+          <div className="pt-4 flex justify-between items-center w-full max-w-md mx-auto">
+            <h3 className="text-xs font-extrabold tracking-widest uppercase">Camera Capture</h3>
+            <button
+              type="button"
+              onClick={stopCamera}
+              className="text-xs font-bold text-zinc-400 hover:text-white px-3 py-1.5 rounded-xl bg-zinc-800"
+            >
+              Cancel
+            </button>
+          </div>
+          
+          <div className="relative flex-1 w-full max-w-md mx-auto rounded-3xl overflow-hidden bg-zinc-900 my-6 flex items-center justify-center border border-zinc-800">
+            <video
+              ref={videoRef}
+              autoPlay
+              playsInline
+              muted
+              className="w-full h-full object-cover"
+            />
+            {/* Sight guide box overlay */}
+            <div className="absolute inset-10 border-2 border-dashed border-white/20 rounded-2xl pointer-events-none" />
+          </div>
+
+          <div className="w-full max-w-md mx-auto pb-8">
+            <button
+              type="button"
+              onClick={capturePhoto}
+              className="w-20 h-20 bg-white border-8 border-zinc-350 rounded-full cursor-pointer hover:scale-105 active:scale-95 transition-transform mx-auto flex items-center justify-center shadow-lg"
+            >
+              <div className="w-10 h-10 bg-[#002f5c] rounded-full" />
+            </button>
+            <span className="text-xs text-zinc-400 font-bold mt-3 block">Tap capture button to save image</span>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

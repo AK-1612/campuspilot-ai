@@ -1,0 +1,47 @@
+{
+  "QR-ENG-G01": {
+    "id": "QR-ENG-G01",
+    "building": "Engineering Block A",
+    "floor": "Ground Floor",
+    "locationName": "Ground Floor Entrance Lobby B",
+    "landmark": "Near the automatic glass doors and central stairs",
+    "accessibleFeatures": ["Elevator access", "Tactile guidance strip", "Audio beacons"],
+    "coordinates": { "lat": 19.1355, "lng": 72.9155 }
+  },
+  "QR-ENG-F02": {
+    "id": "QR-ENG-F02",
+    "building": "Engineering Block A",
+    "floor": "Second Floor",
+    "locationName": "Second Floor Elevator Lobby",
+    "landmark": "Directly outside Lift 2 exit",
+    "accessibleFeatures": ["Elevator access", "Step-free ramp", "Braille signage"],
+    "coordinates": { "lat": 19.1356, "lng": 72.9156 }
+  },
+  "QR-LIB-ENT": {
+    "id": "QR-LIB-ENT",
+    "building": "Main Library",
+    "floor": "Ground Floor",
+    "locationName": "Main Library Entrance",
+    "landmark": "Next to the security checkpoint gates",
+    "accessibleFeatures": ["Wide turnstiles", "Wheelchair ramp", "Visual alerts"],
+    "coordinates": { "lat": 19.1334, "lng": 72.9133 }
+  },
+  "QR-SCI-304": {
+    "id": "QR-SCI-304",
+    "building": "Science Hall",
+    "floor": "Third Floor",
+    "locationName": "Science Lab 304 Corridor",
+    "landmark": "Near the chemistry lab prep room door",
+    "accessibleFeatures": ["Emergency push button", "Low-mounted warning signs"],
+    "coordinates": { "lat": 19.1345, "lng": 72.9110 }
+  },
+  "QR-ADM-CTR": {
+    "id": "QR-ADM-CTR",
+    "building": "Administration Block",
+    "floor": "Ground Floor",
+    "locationName": "Central Courtyard Patio",
+    "landmark": "Beside the central fountain and seating benches",
+    "accessibleFeatures": ["Benches with armrests", "Step-free walking path"],
+    "coordinates": { "lat": 19.1325, "lng": 72.9120 }
+  }
+}

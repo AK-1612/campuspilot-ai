@@ -20,7 +20,8 @@ import {
   RotateCcw,
   Volume2,
   BookOpen,
-  DownloadCloud
+  DownloadCloud,
+  Bot
 } from 'lucide-react';
 
 import { NavigationMode } from './types';
@@ -36,6 +37,8 @@ import ActiveNavigationView from './components/ActiveNavigationView';
 import CampusMap from './components/CampusMap';
 import BottomSheet from './components/BottomSheet';
 import LaptopLanding from './components/LaptopLanding';
+import QRScanner from './components/QRScanner';
+import NavigationChat from './components/NavigationChat';
 
 export default function App() {
   const [isLaptop, setIsLaptop] = useState(window.innerWidth >= 1024);
@@ -76,12 +79,13 @@ export default function App() {
   // Issues Form triggers
   const [prefilledIssueLocation, setPrefilledIssueLocation] = useState<string | null>(null);
   const [activeSubTab, setActiveSubTab] = useState<'view' | 'report'>('view');
+  const [incidentSubmittedToast, setIncidentSubmittedToast] = useState(false);
 
-  // QR Scanning Simulation States
-  const [isQrScanning, setIsQrScanning] = useState(false);
+
+  // QR Scanning & AI Chat States
   const [scanSuccessCard, setScanSuccessCard] = useState(false);
-  const [manualCode, setManualCode] = useState('');
-  const [showManualInput, setShowManualInput] = useState(false);
+  const [scanSuccessData, setScanSuccessData] = useState<any>(null);
+  const [isChatOpen, setIsChatOpen] = useState(false);
 
   // Sound cues simulation toggle
   const [audioCuesEnabled, setAudioCuesEnabled] = useState(true);
@@ -299,7 +303,7 @@ export default function App() {
               onStopNav={() => setActiveNavigationBlockA(false)}
               onReportObstacle={handleReportObstacleFromNav}
               onSosClick={triggerSos}
-              buildingName={isIndoorNav ? "Engineering Block A" : (activeRouteConfig?.destination || "Destination")}
+              buildingName={isIndoorNav ? (scanSuccessData?.building || "Engineering Block A") : (activeRouteConfig?.destination || "Destination")}
               isIndoor={isIndoorNav}
               themeMode="light"
               routeOriginCoords={activeOriginCoords}
@@ -335,8 +339,8 @@ export default function App() {
                     <CampusMap className="w-full h-full" />
                   </div>
 
-                  {/* Top-right audio toggle */}
-                  <div className="absolute right-6 top-6 flex flex-col gap-sm z-10">
+                  {/* Top-right audio toggle & AI Agent Chat toggle */}
+                  <div className="absolute right-6 top-6 flex flex-col gap-3 z-10">
                     <button
                       onClick={() => setAudioCuesEnabled(p => !p)}
                       className={`h-12 w-12 rounded-full shadow-lg border border-zinc-200 flex items-center justify-center cursor-pointer transition-colors ${
@@ -345,6 +349,13 @@ export default function App() {
                       title={audioCuesEnabled ? 'Audio Beacon Cues Engaged' : 'Audio Cues Muted'}
                     >
                       <Volume2 className="w-5 h-5" />
+                    </button>
+                    <button
+                      onClick={() => setIsChatOpen(true)}
+                      className="h-12 w-12 rounded-full shadow-lg border border-zinc-200 bg-white text-teal-600 flex items-center justify-center cursor-pointer transition-all hover:scale-105 active:scale-95 animate-pulse"
+                      title="Chat with AI Navigation Agent"
+                    >
+                      <Bot className="w-5 h-5" />
                     </button>
                   </div>
 
@@ -376,7 +387,10 @@ export default function App() {
                           <div className="absolute inset-y-0 right-0 pr-4 flex items-center gap-2">
                             <Keyboard className="w-4 h-4 text-zinc-400 hover:text-zinc-650 cursor-pointer" />
                             <div className="w-px h-4 bg-zinc-200" />
-                            <Mic className="w-4 h-4 text-teal-500 hover:text-teal-600 cursor-pointer" />
+                            <Mic 
+                              onClick={() => setIsChatOpen(true)}
+                              className="w-4 h-4 text-teal-500 hover:text-teal-600 cursor-pointer" 
+                            />
                           </div>
                         </div>
 
@@ -492,108 +506,16 @@ export default function App() {
 
               {/* TAB 3: QR Checkout Scanner view */}
               {activeTab === 'scan' && (
-                <div className="relative w-full h-[calc(100vh-76px)] bg-black/90 flex flex-col justify-between overflow-hidden">
-                  {/* Viewfinder simulator photo */}
-                  <div className="absolute inset-0 z-0 opacity-60">
-                    <img
-                      alt="corridor"
-                      src="https://lh3.googleusercontent.com/aida-public/AB6AXuA81Orzb2q97WFGECQ_mnE4LFjDMDqT3yEXVoFKlwPI1hkc_cNzoD57YoYkmF_09wZEEVAEId0-Bs4pVehxDH6i3HlXelrTZryVZ08PLy2fuaKliOu-yFWNTFJ5AZE7ivwgVggFs9NJNyFVeW6MHrmLiJPda9_1gIgwnvVKQyWbI7moi3MlmIwxZPGY-zYzYqHkJEeMXzQmZGKE6sawAEJk4XfQJnyUPeHqYTi4GIUN3yGWyPYn7IW12Fw5sqIj5j7Z9nuw3wDz-t0"
-                      className="w-full h-full object-cover"
-                      referrerPolicy="no-referrer"
-                    />
-                  </div>
-
-                  {/* Top info pill banner */}
-                  <div className="relative z-10 w-full px-4 pt-6 flex justify-center">
-                    <div className="inline-flex items-center gap-2.5 bg-black/70 backdrop-blur-md rounded-full px-5 py-2.5 border border-white/10 text-white select-none max-w-[90%] md:max-w-md">
-                      <Info className="w-4 h-4 text-zinc-400 shrink-0" />
-                      <span className="text-xs font-semibold tracking-wide">
-                        Point at any QR checkpoint—entrance, lift, or corridor
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Bracket locator scanning sight */}
-                  <div className="relative z-10 flex-grow flex items-center justify-center p-8 select-none">
-                    <div className="relative w-full max-w-[260px] aspect-square flex items-center justify-center">
-                      {/* Left and Right Brackets */}
-                      <div className="absolute top-0 left-0 w-8 h-8 border-t-4 border-l-4 border-teal-400 rounded-tl-2xl"></div>
-                      <div className="absolute top-0 right-0 w-8 h-8 border-t-4 border-r-4 border-teal-400 rounded-tr-2xl"></div>
-                      <div className="absolute bottom-0 left-0 w-8 h-8 border-b-4 border-l-4 border-teal-400 rounded-bl-2xl"></div>
-                      <div className="absolute bottom-0 right-0 w-8 h-8 border-b-4 border-r-4 border-teal-400 rounded-br-2xl"></div>
-
-                      {isQrScanning ? (
-                        <div className="text-teal-400 text-xs bg-black/80 px-4 py-2 rounded-xl border border-teal-500/20 shadow-md">
-                          Scanning...
-                        </div>
-                      ) : (
-                        <div className="text-white text-xs bg-black/60 px-4 py-2 rounded-xl border border-white/10 shadow-sm animate-pulse">
-                          Sighting corridor...
-                        </div>
-                      )}
-
-                      {/* Scanning laser line */}
-                      <div className="absolute top-0 left-0 w-full h-0.5 bg-teal-400/60 shadow-[0_0_8px_#2dd4bf]" style={{ animation: 'scan 2.5s linear infinite' }} />
-                    </div>
-                  </div>
-
-                  {/* Bottom instructions sheet card */}
-                  <div className="relative z-10 px-4 pb-28 max-w-sm mx-auto w-full">
-                    <div className="bg-[#e2e2eb]/95 backdrop-blur-md rounded-3xl p-4 shadow-xl flex flex-col items-center text-center border border-white/10">
-                      {showManualInput ? (
-                        <div className="w-full space-y-3 flex flex-col items-center">
-                          <input
-                            type="text"
-                            placeholder="Enter 6-digit checkout code"
-                            value={manualCode}
-                            onChange={(e) => setManualCode(e.target.value)}
-                            className="bg-white/80 border border-zinc-350 text-center font-mono focus:border-teal-500 outline-none text-zinc-900 px-4 py-2.5 rounded-xl text-base tracking-widest max-w-[200px]"
-                          />
-                          <div className="flex gap-2">
-                            <button
-                              onClick={() => {
-                                if (manualCode.trim()) {
-                                  handleStartSimulatedBlockAFromScan();
-                                }
-                              }}
-                              className="text-xs font-bold text-teal-700 py-1.5 px-4 border border-teal-500/20 rounded-full hover:bg-teal-50"
-                            >
-                              Submit
-                            </button>
-                            <button
-                              onClick={() => setShowManualInput(false)}
-                              className="text-xs font-bold text-zinc-500 py-1.5 px-4 rounded-full hover:bg-zinc-100"
-                            >
-                              Cancel
-                            </button>
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="w-full flex flex-col items-center">
-                          <div className="flex items-center gap-3 text-zinc-850 text-left w-full mb-3">
-                            <DownloadCloud className="w-6 h-6 text-zinc-650 shrink-0" />
-                            <p className="text-[11px] font-bold leading-normal">
-                              Building map will be saved offline after first scan
-                            </p>
-                          </div>
-                          <div className="flex justify-between items-center w-full border-t border-zinc-300 pt-3">
-                            <button
-                              onClick={() => setShowManualInput(true)}
-                              className="text-xs font-extrabold text-blue-800 hover:underline cursor-pointer"
-                            >
-                              Enter code manually
-                            </button>
-                            <button
-                              onClick={simulateQrScanSuccess}
-                              className="bg-teal-600 hover:bg-teal-700 text-white font-extrabold text-[10px] uppercase tracking-wider py-1.5 px-3 rounded-full cursor-pointer shadow-sm"
-                            >
-                              Simulate Scan
-                            </button>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
+                <div className="relative w-full h-[calc(100vh-76px)] bg-black/90 overflow-hidden">
+                  <QRScanner
+                    onScanSuccess={(data) => {
+                      setScanSuccessData(data);
+                      setScanSuccessCard(true);
+                    }}
+                    onCancel={() => {
+                      setActiveTab('home');
+                    }}
+                  />
 
                   {/* QR Alignment Success Dialog Box popover */}
                   {scanSuccessCard && (
@@ -608,11 +530,11 @@ export default function App() {
                           <h2 className="text-lg font-extrabold text-zinc-900 mb-1">
                             Location Identified
                           </h2>
-                          <div className="bg-zinc-550 rounded-2xl p-4 w-full flex items-center gap-3 border border-zinc-200 mb-6">
+                          <div className="bg-zinc-100 rounded-2xl p-4 w-full flex items-center gap-3 border border-zinc-200 mb-6">
                             <MapPin className="w-5 h-5 text-teal-500 shrink-0" />
                             <p className="text-xs font-semibold text-zinc-700 text-left leading-normal">
-                              Engineering Block A<br />
-                              <span className="text-[11px] text-zinc-400 font-normal">Entrance Ground Floor (Corridor Lobby B)</span>
+                              {scanSuccessData?.building || 'Engineering Block A'}<br />
+                              <span className="text-[11px] text-zinc-400 font-normal">{scanSuccessData?.locationName || 'Entrance Ground Floor'}</span>
                             </p>
                           </div>
 
@@ -624,7 +546,10 @@ export default function App() {
                             Start Indoor Guidance
                           </button>
                           <button
-                            onClick={() => setScanSuccessCard(false)}
+                            onClick={() => {
+                              setScanSuccessCard(false);
+                              setScanSuccessData(null);
+                            }}
                             className="w-full p-2 text-xs text-zinc-550 hover:text-zinc-800 mt-2 font-bold"
                           >
                             Scan another checkpoint
@@ -682,6 +607,8 @@ export default function App() {
                       onSubmitSuccess={() => {
                         setPrefilledIssueLocation(null);
                         setActiveSubTab('view');
+                        setIncidentSubmittedToast(true);
+                        setTimeout(() => setIncidentSubmittedToast(false), 4000);
                       }}
                     />
                   )}
@@ -792,6 +719,37 @@ export default function App() {
             </button>
           </nav>
         )}
+      {isChatOpen && (
+        <div className="fixed inset-0 z-50 bg-zinc-950 flex flex-col">
+          <NavigationChat
+            currentProfileMode={accessibilityMode}
+            onNavigateToDestination={(origin, destination) => {
+              setActiveRouteConfig({ origin, destination });
+              setIsIndoorNav(true);
+              setActiveNavigationBlockA(true);
+              setIsChatOpen(false);
+            }}
+            onClose={() => setIsChatOpen(false)}
+          />
+        </div>
+      )}
+
+      {/* Global Floating Toast for Incident Submission */}
+      {incidentSubmittedToast && (
+        <div className="fixed bottom-24 left-1/2 transform -translate-x-1/2 bg-[#0d9488] text-white px-5 py-3.5 rounded-2xl flex items-start gap-3 shadow-2xl z-[9999] border border-teal-400 w-[90%] max-w-sm animate-bounce">
+          <span className="p-1 bg-teal-800/40 rounded-full shrink-0 text-white mt-0.5">
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </span>
+          <div className="text-left">
+            <h4 className="font-bold text-sm leading-tight text-white">Report Submitted!</h4>
+            <p className="text-[11px] text-teal-100 mt-1 leading-normal">
+              Facility staff has been notified. This report is now active in the live routing engines.
+            </p>
+          </div>
+        </div>
+      )}
 
       </div>
     </div>
