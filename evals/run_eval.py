@@ -9,7 +9,7 @@ Usage:
 
 Note:
     This script validates the heuristic classification layer only. Full LLM
-    end-to-end evaluation requires a live ANTHROPIC_API_KEY and a running
+    end-to-end evaluation requires a live GROQ_API_KEY and a running
     Neo4j instance (see evals/e2e_results.md for those results).
 """
 

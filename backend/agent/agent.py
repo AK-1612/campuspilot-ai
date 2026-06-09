@@ -1,7 +1,7 @@
 import os
 from typing import Dict, Any
 
-from langchain_anthropic import ChatAnthropic
+from langchain_groq import ChatGroq
 from langchain.agents import create_tool_calling_agent, AgentExecutor
 from langchain_core.prompts import ChatPromptTemplate
 
@@ -10,8 +10,8 @@ from .memory import AgentMemory
 from .intent_classifier import classify_intent
 
 # Ensure API Key is available for bootstrap/testing
-if not os.environ.get("ANTHROPIC_API_KEY"):
-    os.environ["ANTHROPIC_API_KEY"] = "dummy-key-for-bootstrap"
+if not os.environ.get("GROQ_API_KEY"):
+    os.environ["GROQ_API_KEY"] = "dummy-key-for-bootstrap"
 
 
 def load_system_prompt() -> str:
@@ -31,13 +31,13 @@ def load_system_prompt() -> str:
 
 def create_campus_agent() -> AgentExecutor:
     """
-    Initializes the LangChain tool-calling agent with the Claude 3 Haiku model
-    and the required set of navigation tools.
+    Initializes the LangChain tool-calling agent with the Groq LLM
+    (llama-3.3-70b-versatile) and the required set of navigation tools.
     
     Returns:
         AgentExecutor: The configured agent executor ready to process queries.
     """
-    llm = ChatAnthropic(model="claude-3-haiku-20240307")
+    llm = ChatGroq(model="llama-3.3-70b-versatile", temperature=0)
     tools = [route_query, qr_lookup, profile_detect, flag_obstacle]
     system_message = load_system_prompt()
     

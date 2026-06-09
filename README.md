@@ -18,13 +18,13 @@ Agentic AI-powered accessible campus navigation — LLM agent, QR indoor positio
 ## Tech Stack
 ![Generative AI](https://img.shields.io/badge/Generative_AI-121011?style=flat&logo=openai&logoColor=white)
 ![LangChain](https://img.shields.io/badge/LangChain-121011?style=flat&logo=langchain&logoColor=white)
-![Claude API](https://img.shields.io/badge/Claude_API-121011?style=flat&logo=anthropic&logoColor=white)
+![Groq](https://img.shields.io/badge/Groq-121011?style=flat&logo=groq&logoColor=white)
 ![Neo4j](https://img.shields.io/badge/Neo4j-121011?style=flat&logo=neo4j&logoColor=white)
 ![FastAPI](https://img.shields.io/badge/FastAPI-121011?style=flat&logo=fastapi&logoColor=white)
 ![React PWA](https://img.shields.io/badge/React_PWA-121011?style=flat&logo=react&logoColor=white)
 
 ## AI Agent Architecture (Backend)
-The backend utilizes an **Agentic Flow** driven by Claude 3 Haiku via LangChain. 
+The backend utilizes an **Agentic Flow** driven by Llama 3.3 70B via Groq and LangChain. 
 - **Tools**: The agent dynamically calls tools (`route_query`, `qr_lookup`, `profile_detect`, `flag_obstacle`) to calculate routes inside the Neo4j graph.
 - **Memory**: It maintains contextual state across conversations (e.g. your last scanned QR code, active disability profile).
 - **Intents**: Queries are pre-classified (navigation vs. emergency) to ensure lightning-fast responses and strict fallbacks.
@@ -38,7 +38,7 @@ The backend utilizes an **Agentic Flow** driven by Claude 3 Haiku via LangChain.
 
 ### Environment Variables
 1. Copy `.env.example` to `.env`
-2. Fill in the required values (e.g., `ANTHROPIC_API_KEY`). **DO NOT commit your `.env` file.**
+2. Fill in the required values (e.g., `GROQ_API_KEY`). **DO NOT commit your `.env` file.**
 
 ### How to run Backend
 ```bash

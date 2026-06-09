@@ -85,7 +85,7 @@ If the frontend fails:
 - Show pytest passing results.
 - Explain architecture diagram.
 
-If Claude API fails:
+If Groq API fails:
 
 - Use mocked responses.
 - Demonstrate tool execution manually.

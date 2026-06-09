@@ -2,7 +2,7 @@
 
 **Date:** June 9, 2026  
 **Author:** Anshul Kumaria (AI & Intelligence Lead)  
-**Environment:** macOS, Python 3.9.6, `langchain==0.3.30`, `langchain-anthropic==0.3.22`
+**Environment:** macOS, Python 3.9.6, `langchain==0.3.30`, `langchain-groq>=0.1.9`
 
 ---
 
@@ -64,7 +64,7 @@ All pre-demo checks passed. Agent is cleared for presentation.
 
 ## Notes for Presentation Day
 
-- ANTHROPIC_API_KEY must be set in `.env` before the live demo.
+- GROQ_API_KEY must be set in `.env` before the live demo.
 - The agent executor is in **verbose=True** mode — the judge can see the LLM's tool call chain in the terminal during the demo.
 - If internet is unavailable, `handle_offline_mode()` can be demonstrated as a standalone fallback.
 - The LLM layer (Neo4j integration) is pending Dhruv's FastAPI `/navigate` endpoint. The agent scaffold and all heuristic layers are fully functional.

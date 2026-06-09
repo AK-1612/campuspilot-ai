@@ -26,29 +26,27 @@ LlamaIndex's agent layer is a secondary concern in its design, not its primary s
 
 ---
 
-## Decision 2: Claude 3 Haiku over GPT-4o
+## Decision 2: Llama 3.3 70B via Groq over Claude / OpenAI GPT-4o
 
-**Choice:** Anthropic Claude 3 Haiku (`claude-3-haiku-20240307`)  
-**Rejected:** OpenAI GPT-4o, GPT-4o-mini, Gemini 1.5 Flash
+**Choice:** Llama 3.3 70B via Groq (`llama-3.3-70b-versatile`)  
+**Rejected:** Anthropic Claude 3 Haiku, OpenAI GPT-4o-mini, Gemini 1.5 Flash
 
 ### Rationale
 
-#### Speed
-Claude 3 Haiku is one of the fastest frontier LLMs available via API, with median first-token latency under 500ms. For a **real-time mobile navigation assistant**, every second of delay worsens user safety. A wheelchair user navigating stairs cannot wait 3 seconds for a route. Haiku's inference speed is a hard requirement, not a preference.
+#### Speed & Throughput
+Groq's LPU (Language Processing Unit) architecture delivers unmatched speed for LLM inference, serving Llama 3.3 70B at over 250 tokens per second. For a **real-time mobile navigation assistant**, low latency is critical to user experience and safety. A user navigating a crowded campus block cannot wait multiple seconds for an LLM route reasoning cycle. Groq's sub-second response times meet this speed requirement perfectly.
 
-#### Cost at Scale
-Haiku costs approximately $0.25 per million input tokens — significantly cheaper than GPT-4o ($5/M input) and GPT-4o-mini ($0.15/M input but with reduced reasoning capability). Our `route_query` tool passes Neo4j path data as structured context into the prompt. This can be dense. Haiku allows us to pass full graph subgraph context without cost concerns.
+#### Cost & Reasoning Capabilities
+Llama 3.3 70B is a state-of-the-art model with reasoning capabilities comparable to Claude 3.5 Sonnet and GPT-4o, but available at an extremely low cost on Groq's API. Our `route_query` tool passes dense Neo4j path data as structured context, requiring high context-window comprehension and complex multi-constraint reasoning. Llama 3.3 70B delivers these premium reasoning capabilities without the high price tag of traditional frontier APIs.
 
 #### Instruction Following
-Claude models consistently outperform GPT-4o-mini on complex, structured system prompts in head-to-head evaluations. Our system prompt requires the model to:
+Llama 3.3 70B handles structured system prompts exceptionally well. Our prompt requires the model to:
 - Respect 5 different disability profiles simultaneously.
-- Never hallucinate a room number (deferring to tool output instead).
-- Escalate to emergency handling without hesitation.
-
-Claude 3 Haiku handles these multi-constraint prompts with lower hallucination rates than the alternatives tested.
+- Never hallucinate room numbers (always deferring to verified graph data from the tools).
+- Instantly escalate to emergency overrides when safety keywords are triggered.
 
 #### LangChain Integration
-`langchain-anthropic` provides a stable, maintained integration (`ChatAnthropic`) that supports Claude's native tool-use API, ensuring structured tool calls are produced reliably without prompt hacking.
+`langchain-groq` provides a robust, native integration (`ChatGroq`) supporting tool call generation, making it easy to wire into our LangChain ReAct executor setup.
 
 ---
 

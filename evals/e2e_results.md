@@ -2,7 +2,7 @@
 
 **Date:** June 9, 2026  
 **Evaluator:** Anshul Kumaria (AI & Intelligence Lead)  
-**Environment:** `Claude 3 Haiku` via `langchain-anthropic==0.3.22`
+**Environment:** `Llama 3.3 70B` via `langchain-groq>=0.1.9`
 
 ---
 
@@ -53,7 +53,7 @@ Each profile was verified to produce the correct constraint flags via `profile_h
 
 ## Layer 3: Full LLM End-to-End Test (Pending Live Integration)
 
-> **Status:** Pending Neo4j seed data and live `ANTHROPIC_API_KEY` configuration.  
+> **Status:** Pending Neo4j seed data and live `GROQ_API_KEY` configuration.  
 > The LangChain agent executor (`CampusPilotAgent`) is scaffolded and unit-tested.  
 > Full round-trip testing (User → Agent → Neo4j → Route → Response) is the responsibility  
 > of the Architecture Lead (Dhruv) once the `/navigate` API endpoint and graph seed are live.
