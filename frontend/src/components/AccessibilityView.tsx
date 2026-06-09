@@ -62,7 +62,7 @@ export default function AccessibilityView({
       )}
 
       {/* Fixed bottom action bar */}
-      <div className="fixed bottom-0 left-0 w-full bg-white border-t border-zinc-150 px-6 pt-4 pb-8 z-40 shadow-lg">
+      <div className="fixed bottom-0 left-0 w-full bg-white border-t border-zinc-150 px-6 pt-4 pb-24 z-40 shadow-lg">
         <button
           type="button"
           onClick={handleSave}

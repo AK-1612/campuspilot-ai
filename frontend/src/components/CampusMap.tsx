@@ -4,7 +4,7 @@
  */
 
 import React, { useEffect, useRef, useState } from 'react';
-import { MapContainer, TileLayer, Marker, useMap, Circle } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, useMap, Circle, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet-routing-machine';
 import { renderToStaticMarkup } from 'react-dom/server';
@@ -137,6 +137,15 @@ function RoutingControl({ origin, destination, onRouteCalculated }: RoutingContr
   return null;
 }
 
+function MapClickTracker({ onClick }: { onClick: (coords: [number, number]) => void }) {
+  useMapEvents({
+    click(e) {
+      onClick([e.latlng.lat, e.latlng.lng]);
+    }
+  });
+  return null;
+}
+
 interface CampusMapProps {
   /** Extra CSS classes on the wrapper div */
   className?: string;
@@ -146,6 +155,9 @@ interface CampusMapProps {
   routeDestination?: [number, number];
   onRouteCalculated?: (steps: any[], summary: { distanceMeters: number; durationSeconds: number }) => void;
   focusedStepCoords?: [number, number] | null;
+  onMapClick?: (coords: [number, number]) => void;
+  onUserLocationChange?: (coords: [number, number]) => void;
+  customPinCoords?: [number, number] | null;
 }
 
 export default function CampusMap({
@@ -154,7 +166,10 @@ export default function CampusMap({
   routeOrigin,
   routeDestination,
   onRouteCalculated,
-  focusedStepCoords
+  focusedStepCoords,
+  onMapClick,
+  onUserLocationChange,
+  customPinCoords
 }: CampusMapProps) {
   const [userPos, setUserPos] = useState<[number, number] | null>(null);
   const [locating, setLocating] = useState(true);
@@ -168,7 +183,9 @@ export default function CampusMap({
 
     navigator.geolocation.getCurrentPosition(
       (pos) => {
-        setUserPos([pos.coords.latitude, pos.coords.longitude]);
+        const coords: [number, number] = [pos.coords.latitude, pos.coords.longitude];
+        setUserPos(coords);
+        if (onUserLocationChange) onUserLocationChange(coords);
         setLocating(false);
       },
       () => setLocating(false),
@@ -177,7 +194,9 @@ export default function CampusMap({
 
     watchIdRef.current = navigator.geolocation.watchPosition(
       (pos) => {
-        setUserPos([pos.coords.latitude, pos.coords.longitude]);
+        const coords: [number, number] = [pos.coords.latitude, pos.coords.longitude];
+        setUserPos(coords);
+        if (onUserLocationChange) onUserLocationChange(coords);
       },
       () => {},
       { enableHighAccuracy: true }
@@ -191,7 +210,7 @@ export default function CampusMap({
   }, []);
 
   const center = userPos ?? DEFAULT_CENTER;
-  const mapCenter = focusedStepCoords ?? center;
+  const mapCenter = focusedStepCoords ?? customPinCoords ?? center;
 
   return (
     <div className={`relative w-full h-full ${className}`}>
@@ -214,6 +233,9 @@ export default function CampusMap({
         {/* Smooth location/focal updater */}
         <LocationUpdater position={mapCenter} />
 
+        {/* Click events handler for dropping a pin */}
+        {onMapClick && <MapClickTracker onClick={onMapClick} />}
+
         {/* User location dot */}
         {userPos && (
           <>
@@ -229,6 +251,19 @@ export default function CampusMap({
             />
             <Marker position={userPos} icon={userLocationIcon} />
           </>
+        )}
+
+        {/* Custom dropped pin red marker */}
+        {customPinCoords && (
+          <Marker
+            position={customPinCoords}
+            icon={L.icon({
+              iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
+              shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
+              iconSize: [25, 41],
+              iconAnchor: [12, 41]
+            })}
+          />
         )}
 
         {/* Dynamic focused step pulsing dot indicator */}

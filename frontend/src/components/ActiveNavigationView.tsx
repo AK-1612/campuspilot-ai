@@ -104,7 +104,7 @@ export default function ActiveNavigationView({
       },
       {
         stepIndex: 4,
-        instruction: 'Arrive at ' + buildingName,
+        instruction: 'Arrive at ' + (buildingName === 'Dropped Pin' ? 'Selected Location' : buildingName),
         subInstructions: 'Your destination is ahead',
         directionIcon: 'warning',
         distanceAhead: 'Dest',
@@ -240,7 +240,9 @@ export default function ActiveNavigationView({
               <div className="flex items-start justify-between">
                 <div>
                   <h2 className="text-xl font-bold text-[#002f5c] font-sans">
-                    {buildingName}
+                    {buildingName === 'Dropped Pin' && routeDestinationCoords
+                      ? `Selected Location (${routeDestinationCoords[0].toFixed(5)}, ${routeDestinationCoords[1].toFixed(5)})`
+                      : buildingName}
                   </h2>
                   <p className="text-xs text-zinc-550 font-medium mt-1">
                     Arriving in {routeSummary ? Math.ceil(routeSummary.durationSeconds / 60) : '5'} mins • Speed: Standard

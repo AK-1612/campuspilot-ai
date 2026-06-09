@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Home,
   Navigation,
@@ -34,11 +34,63 @@ import AccessibilityView from './components/AccessibilityView';
 import SOSScreen from './components/SOSScreen';
 import RouteOptionsView from './components/RouteOptionsView';
 import ActiveNavigationView from './components/ActiveNavigationView';
+import OutdoorNavigationView from './components/OutdoorNavigationView';
 import CampusMap from './components/CampusMap';
 import BottomSheet from './components/BottomSheet';
 import LaptopLanding from './components/LaptopLanding';
 import QRScanner from './components/QRScanner';
 import NavigationChat from './components/NavigationChat';
+
+// ─── POI helpers (used by Quick Destinations fetcher) ────────────────────────
+
+function getPoiIcon(tags: Record<string, string>): string {
+  const a = tags.amenity || '';
+  const s = tags.shop || '';
+  const l = tags.leisure || '';
+  const t = tags.tourism || '';
+  const p = tags.place || '';
+  // Localities / areas
+  if (p === 'suburb' || p === 'neighbourhood' || p === 'quarter') return '🏘️';
+  if (p === 'district' || p === 'city_district' || p === 'borough') return '🏙️';
+  if (p === 'town' || p === 'city') return '🌆';
+  if (p === 'village' || p === 'hamlet') return '🇨';
+  // Amenities
+  if (a === 'restaurant' || a === 'fast_food' || a === 'food_court') return '🍽️';
+  if (a === 'cafe') return '☕';
+  if (a === 'bar' || a === 'pub') return '🍺';
+  if (a === 'hospital' || a === 'clinic') return '🏥';
+  if (a === 'pharmacy') return '💊';
+  if (a === 'bank' || a === 'atm') return '🏦';
+  if (a === 'fuel') return '⛽';
+  if (a === 'school') return '🏫';
+  if (a === 'university' || a === 'college') return '🎓';
+  if (a === 'library') return '📚';
+  if (a === 'cinema' || a === 'theatre') return '🎬';
+  if (a === 'police') return '🚔';
+  if (a === 'place_of_worship') return '🕌';
+  if (a === 'marketplace') return '🏪';
+  if (a === 'supermarket') return '🛒';
+  if (s === 'mall' || s === 'department_store') return '🏬';
+  if (s === 'supermarket' || s === 'convenience') return '🛒';
+  if (s === 'clothes') return '👗';
+  if (s === 'electronics') return '📱';
+  if (l === 'park') return '🌳';
+  if (l === 'sports_centre' || l === 'stadium') return '⚽';
+  if (l === 'swimming_pool') return '🏊';
+  if (t === 'hotel' || t === 'hostel') return '🏨';
+  if (t === 'museum') return '🏛️';
+  if (t === 'attraction') return '⭐';
+  return '📍';
+}
+
+function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const R = 6371;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLng = (lng2 - lng1) * Math.PI / 180;
+  const a = Math.sin(dLat / 2) ** 2
+    + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
 
 export default function App() {
   const [isLaptop, setIsLaptop] = useState(window.innerWidth >= 1024);
@@ -73,8 +125,17 @@ export default function App() {
     return undefined;
   };
 
-  const activeOriginCoords = activeRouteConfig ? getCoordsForName(activeRouteConfig.origin) : undefined;
-  const activeDestCoords = activeRouteConfig ? getCoordsForName(activeRouteConfig.destination) : undefined;
+  // Custom destination pin drop and user location tracking
+  const [userLocation, setUserLocation] = useState<[number, number] | null>(null);
+  const [customPinCoords, setCustomPinCoords] = useState<[number, number] | null>(null);
+
+  const activeOriginCoords = activeRouteConfig?.origin === 'Current Location'
+    ? (userLocation || [19.1334, 72.9133])
+    : (activeRouteConfig ? getCoordsForName(activeRouteConfig.origin) : undefined);
+
+  const activeDestCoords = activeRouteConfig?.destination === 'Dropped Pin'
+    ? (customPinCoords || undefined)
+    : (activeRouteConfig ? getCoordsForName(activeRouteConfig.destination) : undefined);
 
   // Issues Form triggers
   const [prefilledIssueLocation, setPrefilledIssueLocation] = useState<string | null>(null);
@@ -89,6 +150,94 @@ export default function App() {
 
   // Sound cues simulation toggle
   const [audioCuesEnabled, setAudioCuesEnabled] = useState(true);
+
+  // Outdoor navigation system (Google Maps-style full experience)
+  const [showOutdoorNav, setShowOutdoorNav] = useState(false);
+  const [outdoorNavInitialDest, setOutdoorNavInitialDest] = useState<{
+    lat: number; lng: number; name: string;
+  } | null>(null);
+
+  // Nearby places (fetched from Overpass API when user location is known)
+  const [nearbyPlaces, setNearbyPlaces] = useState<Array<{
+    id: string; name: string; icon: string; lat: number; lng: number; distKm?: number;
+  }>>([]);
+  const [isFetchingNearby, setIsFetchingNearby] = useState(false);
+  const nearbyFetchedRef = useRef(false);
+
+  // Fetch nearby POIs + localities once userLocation becomes available
+  useEffect(() => {
+    if (!userLocation || nearbyFetchedRef.current) return;
+    nearbyFetchedRef.current = true;
+    const [lat, lng] = userLocation;
+    setIsFetchingNearby(true);
+
+    // Query 1: specific POIs within 2km
+    const poiQuery = [
+      '[out:json][timeout:15];',
+      '(',
+      `node["name"]["amenity"~"restaurant|cafe|bar|bank|hospital|pharmacy|fuel|supermarket|school|university|library|cinema|fast_food|police|place_of_worship|marketplace"](around:2000,${lat},${lng});`,
+      `node["name"]["shop"~"mall|supermarket|convenience|department_store|clothes|electronics"](around:2000,${lat},${lng});`,
+      `node["name"]["leisure"~"park|sports_centre|stadium|swimming_pool"](around:1500,${lat},${lng});`,
+      `node["name"]["tourism"~"hotel|museum|attraction|hostel"](around:2000,${lat},${lng});`,
+      ');',
+      'out body 20;'
+    ].join('');
+
+    // Query 2: popular localities/suburbs/neighbourhoods within 8km
+    const localityQuery = [
+      '[out:json][timeout:15];',
+      '(',
+      `node["name"]["place"~"suburb|neighbourhood|quarter|district|city_district|borough|town|village"](around:8000,${lat},${lng});`,
+      ');',
+      'out body 20;'
+    ].join('');
+
+    const fetchOverpass = (q: string) =>
+      fetch('https://overpass-api.de/api/interpreter', {
+        method: 'POST',
+        body: `data=${encodeURIComponent(q)}`,
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      }).then(r => r.json());
+
+    Promise.allSettled([fetchOverpass(poiQuery), fetchOverpass(localityQuery)])
+      .then(([poiResult, localityResult]) => {
+        const poiEls = poiResult.status === 'fulfilled' ? (poiResult.value.elements || []) : [];
+        const localityEls = localityResult.status === 'fulfilled' ? (localityResult.value.elements || []) : [];
+
+        const toPlace = (el: any, prefix: string) => ({
+          id: `${prefix}-${el.id}`,
+          name: el.tags.name as string,
+          icon: getPoiIcon(el.tags),
+          lat: el.lat as number,
+          lng: el.lon as number,
+          distKm: haversineKm(lat, lng, el.lat, el.lon),
+        });
+
+        const pois = poiEls
+          .filter((el: any) => el.tags?.name && el.lat && el.lon)
+          .map((el: any) => toPlace(el, 'poi'));
+
+        const localities = localityEls
+          .filter((el: any) => el.tags?.name && el.lat && el.lon)
+          .map((el: any) => toPlace(el, 'loc'));
+
+        // Merge: localities first (sorted by dist), then POIs; deduplicate by name
+        const seen = new Set<string>();
+        const merged = [...localities, ...pois]
+          .sort((a, b) => a.distKm - b.distKm)
+          .filter(p => {
+            const key = p.name.toLowerCase();
+            if (seen.has(key)) return false;
+            seen.add(key);
+            return true;
+          })
+          .slice(0, 12);
+
+        setNearbyPlaces(merged);
+      })
+      .catch(() => { /* silently fall back to default chips */ })
+      .finally(() => setIsFetchingNearby(false));
+  }, [userLocation]);
 
   // Triggering SOS Action
   const triggerSos = () => {
@@ -144,6 +293,19 @@ export default function App() {
         <SOSScreen
           onCancel={() => setSosActive(false)}
           lastKnownLocation="Engineering Block A — Ground Floor Entrance"
+        />
+      )}
+
+      {/* Outdoor Navigation — full Google Maps-style experience */}
+      {showOutdoorNav && (
+        <OutdoorNavigationView
+          onBack={() => {
+            setShowOutdoorNav(false);
+            setOutdoorNavInitialDest(null);
+            setCustomPinCoords(null);
+          }}
+          onSosClick={triggerSos}
+          initialDestination={outdoorNavInitialDest ?? undefined}
         />
       )}
 
@@ -298,9 +460,20 @@ export default function App() {
             <ActiveNavigationView
               onBack={() => {
                 setActiveNavigationBlockA(false);
-                setActiveTab('saved');
+                if (activeRouteConfig?.destination === 'Dropped Pin') {
+                  setActiveRouteConfig(null);
+                  setActiveTab('home');
+                } else {
+                  setActiveTab('saved');
+                }
               }}
-              onStopNav={() => setActiveNavigationBlockA(false)}
+              onStopNav={() => {
+                setActiveNavigationBlockA(false);
+                if (activeRouteConfig?.destination === 'Dropped Pin') {
+                  setActiveRouteConfig(null);
+                  setActiveTab('home');
+                }
+              }}
               onReportObstacle={handleReportObstacleFromNav}
               onSosClick={triggerSos}
               buildingName={isIndoorNav ? (scanSuccessData?.building || "Engineering Block A") : (activeRouteConfig?.destination || "Destination")}
@@ -336,7 +509,15 @@ export default function App() {
                 <div className="relative w-full h-[calc(100vh-76px)] overflow-hidden flex flex-col">
                   {/* Live Leaflet map — fills the full area */}
                   <div className="absolute inset-0 z-0">
-                    <CampusMap className="w-full h-full" />
+                    <CampusMap 
+                      className="w-full h-full" 
+                      onMapClick={(coords) => {
+                        setCustomPinCoords(coords);
+                        setSelectedHotspot(null); // Clear hotspot highlight
+                      }}
+                      onUserLocationChange={(coords) => setUserLocation(coords)}
+                      customPinCoords={customPinCoords}
+                    />
                   </div>
 
                   {/* Top-right audio toggle & AI Agent Chat toggle */}
@@ -359,130 +540,193 @@ export default function App() {
                     </button>
                   </div>
 
-                  {/* Draggable Bottom Sheet */}
+                  {/* Draggable Bottom Sheet or Dropped Pin overlay */}
                   <div className="absolute bottom-0 left-0 right-0 z-20">
-                    <BottomSheet defaultSnap="mid">
-                      <div className="max-w-xl mx-auto w-full flex flex-col gap-4">
-                        {/* Interactive Search Bar */}
-                        <div className="relative w-full">
-                          <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                            <Search className="w-5 h-5 text-zinc-400" />
-                          </div>
-                          <input
-                            type="text"
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter' && searchQuery.trim()) {
-                                setActiveRouteConfig({
-                                  origin: 'Main Gate',
-                                  destination: searchQuery.trim()
-                                });
-                                setActiveTab('routes');
-                              }
-                            }}
-                            placeholder="Where do you want to go?"
-                            className="block w-full pl-12 pr-16 py-3.5 bg-white border border-zinc-200 rounded-2xl font-sans text-sm font-semibold text-zinc-900 focus:outline-none focus:ring-2 focus:ring-teal-500 shadow-sm"
-                          />
-                          <div className="absolute inset-y-0 right-0 pr-4 flex items-center gap-2">
-                            <Keyboard className="w-4 h-4 text-zinc-400 hover:text-zinc-650 cursor-pointer" />
-                            <div className="w-px h-4 bg-zinc-200" />
-                            <Mic 
-                              onClick={() => setIsChatOpen(true)}
-                              className="w-4 h-4 text-teal-500 hover:text-teal-600 cursor-pointer" 
-                            />
-                          </div>
-                        </div>
-
-                        {/* Quick Action Buttons */}
-                        <div className="flex gap-3">
-                          <button
-                            onClick={() => {
-                              setActiveRouteConfig({ origin: 'Main Gate', destination: 'Science Building' });
-                              setActiveTab('routes');
-                            }}
-                            className="flex-1 flex items-center justify-center gap-2 py-3.5 px-4 rounded-xl font-sans font-bold text-sm shadow-sm transition-all active:scale-95 text-white bg-[#002f5c] hover:bg-[#002447]"
-                          >
-                            <Navigation className="w-4 h-4 rotate-45" />
-                            Outdoor Route
-                          </button>
-                          <button
-                            onClick={() => {
-                              setActiveRouteConfig({ origin: 'Ground Floor Lobby', destination: 'Engineering Block A' });
-                              setActiveTab('routes');
-                            }}
-                            className="flex-1 flex items-center justify-center gap-2 py-3.5 px-4 rounded-xl font-sans font-bold text-sm shadow-sm transition-all active:scale-95 text-white bg-[#006d51] hover:bg-[#005740]"
-                          >
-                            <BookOpen className="w-4 h-4" />
-                            Indoor Nav
-                          </button>
-                        </div>
-
-                        {/* Quick Destinations */}
-                        <div>
-                          <h3 className="text-xs font-extrabold text-zinc-500 tracking-wider mb-2">
-                            Quick Destinations
-                          </h3>
-                          <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
-                            {[
-                              { id: 'dorm', name: 'Dormitory', icon: '🏠' },
-                              { id: 'lib', name: 'Main Library', icon: '🏛️' },
-                              { id: 'science', name: 'Science Lab 304', icon: '🏢' },
-                              { id: 'hub', name: 'Student Union', icon: '☕' }
-                            ].map((spot, idx) => (
-                              <button
-                                key={idx}
-                                onClick={() => {
-                                  setActiveRouteConfig({ origin: 'Main Gate', destination: spot.name });
-                                  setActiveTab('routes');
-                                }}
-                                className="flex-shrink-0 flex items-center gap-1.5 bg-zinc-100 border border-zinc-200 rounded-full py-2 px-4 shadow-sm hover:bg-zinc-200 font-sans font-bold text-xs text-zinc-700 transition-colors whitespace-nowrap"
-                              >
-                                <span>{spot.icon}</span>
-                                {spot.name}
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-
-                        {/* Recent Routes */}
-                        <div>
-                          <h3 className="text-sm font-bold text-zinc-800 mb-3">Recent Routes</h3>
-                          <div className="space-y-2">
-                            <div
-                              onClick={() => { setActiveRouteConfig({ origin: 'Main Gate', destination: 'Library' }); setActiveTab('routes'); }}
-                              className="flex items-center justify-between p-3 bg-white border border-zinc-200 rounded-xl cursor-pointer hover:bg-zinc-50 transition-colors"
-                            >
-                              <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 rounded-full bg-indigo-50 flex items-center justify-center text-indigo-600 shrink-0">
-                                  <RotateCcw className="w-4 h-4" />
-                                </div>
-                                <div className="text-left">
-                                  <p className="font-sans font-bold text-sm text-zinc-900">Main Gate to Library</p>
-                                  <p className="text-xs text-zinc-500 font-semibold">Outdoor • 5 mins</p>
-                                </div>
-                              </div>
-                              <ChevronRight className="w-4 h-4 text-zinc-400" />
+                    {customPinCoords ? (
+                      <div className="bg-white rounded-t-3xl border-t border-zinc-200/80 shadow-2xl p-6 relative">
+                        <div className="max-w-xl mx-auto w-full flex flex-col gap-4">
+                          <div className="w-12 h-1.5 bg-zinc-200 rounded-full mx-auto mb-2" />
+                          
+                          <div className="flex items-start gap-4">
+                            <div className="w-12 h-12 rounded-2xl bg-red-50 text-red-500 flex items-center justify-center shrink-0 border border-red-100 shadow-sm">
+                              <MapPin className="w-6 h-6 fill-current" />
                             </div>
-                            <div
-                              onClick={() => { setActiveRouteConfig({ origin: 'Science Lab 304', destination: 'Engineering Block A' }); setActiveTab('routes'); }}
-                              className="flex items-center justify-between p-3 bg-white border border-zinc-200 rounded-xl cursor-pointer hover:bg-zinc-50 transition-colors"
-                            >
-                              <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 rounded-full bg-indigo-50 flex items-center justify-center text-indigo-600 shrink-0">
-                                  <RotateCcw className="w-4 h-4" />
-                                </div>
-                                <div className="text-left">
-                                  <p className="font-sans font-bold text-sm text-zinc-900">Science Lab 304</p>
-                                  <p className="text-xs text-zinc-500 font-semibold">Indoor • Building B</p>
-                                </div>
-                              </div>
-                              <ChevronRight className="w-4 h-4 text-zinc-400" />
+                            <div className="flex-1 text-left">
+                              <h3 className="font-extrabold text-[#002f5c] text-base">Dropped Pin</h3>
+                              <p className="text-xs font-mono text-zinc-550 mt-1 font-semibold">
+                                {customPinCoords[0].toFixed(6)}, {customPinCoords[1].toFixed(6)}
+                              </p>
                             </div>
+                          </div>
+
+                          <div className="flex gap-3 mt-2">
+                            <button
+                              onClick={() => {
+                                if (customPinCoords) {
+                                  setOutdoorNavInitialDest({
+                                    lat: customPinCoords[0],
+                                    lng: customPinCoords[1],
+                                    name: `${customPinCoords[0].toFixed(5)}, ${customPinCoords[1].toFixed(5)}`
+                                  });
+                                }
+                                setCustomPinCoords(null);
+                                setShowOutdoorNav(true);
+                              }}
+                              className="flex-1 flex items-center justify-center gap-2 py-3.5 px-4 rounded-xl font-sans font-bold text-sm text-white bg-[#0d9488] hover:bg-[#0f766e] transition-colors shadow-md active:scale-95 transform duration-150 cursor-pointer"
+                            >
+                              <Navigation className="w-4 h-4 rotate-45" />
+                              Get Directions
+                            </button>
+                            <button
+                              onClick={() => setCustomPinCoords(null)}
+                              className="flex-1 flex items-center justify-center gap-2 py-3.5 px-4 rounded-xl font-sans font-bold text-sm border border-zinc-350 hover:bg-zinc-100 text-zinc-750 transition-colors cursor-pointer"
+                            >
+                              Clear Pin
+                            </button>
                           </div>
                         </div>
                       </div>
-                    </BottomSheet>
+                    ) : (
+                      <BottomSheet defaultSnap="mid">
+                        <div className="max-w-xl mx-auto w-full flex flex-col gap-4">
+
+                          {/* Quick Action Buttons */}
+                          <div className="flex gap-3">
+                            <button
+                              onClick={() => {
+                                setOutdoorNavInitialDest(null);
+                                setShowOutdoorNav(true);
+                              }}
+                              className="flex-1 flex items-center justify-center gap-2 py-3.5 px-4 rounded-xl font-sans font-bold text-sm shadow-sm transition-all active:scale-95 text-white bg-[#002f5c] hover:bg-[#002447]"
+                            >
+                              <Navigation className="w-4 h-4 rotate-45" />
+                              Outdoor Route
+                            </button>
+                            <button
+                              onClick={() => {
+                                setActiveRouteConfig({ origin: 'Ground Floor Lobby', destination: 'Engineering Block A' });
+                                setActiveTab('routes');
+                              }}
+                              className="flex-1 flex items-center justify-center gap-2 py-3.5 px-4 rounded-xl font-sans font-bold text-sm shadow-sm transition-all active:scale-95 text-white bg-[#006d51] hover:bg-[#005740]"
+                            >
+                              <BookOpen className="w-4 h-4" />
+                              Indoor Nav
+                            </button>
+                          </div>
+
+                          {/* Nearby Places (dynamic from Overpass/OSM) */}
+                          <div>
+                            <div className="flex items-center justify-between mb-2">
+                              <h3 className="text-xs font-extrabold text-zinc-500 tracking-wider">
+                                {nearbyPlaces.length > 0 ? 'Nearby Places' : 'Quick Destinations'}
+                              </h3>
+                              {isFetchingNearby && (
+                                <div className="flex items-center gap-1.5">
+                                  <div className="w-3 h-3 border-2 border-zinc-200 border-t-teal-500 rounded-full animate-spin" />
+                                  <span className="text-[10px] font-bold text-zinc-400">Finding nearby…</span>
+                                </div>
+                              )}
+                            </div>
+
+                            <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
+                              {/* Loading skeletons */}
+                              {isFetchingNearby && nearbyPlaces.length === 0 && (
+                                [1, 2, 3, 4].map(i => (
+                                  <div
+                                    key={i}
+                                    className="flex-shrink-0 h-8 rounded-full bg-zinc-100 animate-pulse"
+                                    style={{ width: `${60 + i * 12}px` }}
+                                  />
+                                ))
+                              )}
+
+                              {/* Real nearby POIs */}
+                              {nearbyPlaces.map(place => (
+                                <button
+                                  key={place.id}
+                                  onClick={() => {
+                                    setOutdoorNavInitialDest({
+                                      lat: place.lat,
+                                      lng: place.lng,
+                                      name: place.name
+                                    });
+                                    setShowOutdoorNav(true);
+                                  }}
+                                  className="flex-shrink-0 flex items-center gap-1.5 bg-zinc-100 border border-zinc-200 rounded-full py-2 px-3.5 shadow-sm hover:bg-teal-50 hover:border-teal-300 font-sans font-bold text-xs text-zinc-700 transition-colors whitespace-nowrap group"
+                                >
+                                  <span className="text-sm">{place.icon}</span>
+                                  <span className="group-hover:text-teal-700 transition-colors">{place.name}</span>
+                                  {place.distKm !== undefined && (
+                                    <span className="text-[10px] font-semibold text-zinc-400 group-hover:text-teal-500">
+                                      {place.distKm < 1
+                                        ? `${Math.round(place.distKm * 1000)}m`
+                                        : `${place.distKm.toFixed(1)}km`}
+                                    </span>
+                                  )}
+                                </button>
+                              ))}
+
+                              {/* Fallback chips when no location / fetch failed */}
+                              {!isFetchingNearby && nearbyPlaces.length === 0 && [
+                                { id: 'dorm', name: 'Dormitory', icon: '🏠' },
+                                { id: 'lib', name: 'Main Library', icon: '🏛️' },
+                                { id: 'science', name: 'Science Lab', icon: '🔬' },
+                                { id: 'cafe', name: 'Cafeteria', icon: '☕' }
+                              ].map(spot => (
+                                <button
+                                  key={spot.id}
+                                  onClick={() => {
+                                    setOutdoorNavInitialDest(null);
+                                    setShowOutdoorNav(true);
+                                  }}
+                                  className="flex-shrink-0 flex items-center gap-1.5 bg-zinc-100 border border-zinc-200 rounded-full py-2 px-3.5 shadow-sm hover:bg-zinc-200 font-sans font-bold text-xs text-zinc-700 transition-colors whitespace-nowrap"
+                                >
+                                  <span className="text-sm">{spot.icon}</span>
+                                  {spot.name}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+
+                          {/* Recent Routes */}
+                          <div>
+                            <h3 className="text-sm font-bold text-zinc-800 mb-3">Recent Routes</h3>
+                            <div className="space-y-2">
+                              <div
+                                onClick={() => { setActiveRouteConfig({ origin: 'Main Gate', destination: 'Library' }); setActiveTab('routes'); }}
+                                className="flex items-center justify-between p-3 bg-white border border-zinc-200 rounded-xl cursor-pointer hover:bg-zinc-50 transition-colors"
+                              >
+                                <div className="flex items-center gap-3">
+                                  <div className="w-10 h-10 rounded-full bg-indigo-50 flex items-center justify-center text-indigo-600 shrink-0">
+                                    <RotateCcw className="w-4 h-4" />
+                                  </div>
+                                  <div className="text-left">
+                                    <p className="font-sans font-bold text-sm text-zinc-900">Main Gate to Library</p>
+                                    <p className="text-xs text-zinc-500 font-semibold">Outdoor • 5 mins</p>
+                                  </div>
+                                </div>
+                                <ChevronRight className="w-4 h-4 text-zinc-400" />
+                              </div>
+                              <div
+                                onClick={() => { setActiveRouteConfig({ origin: 'Science Lab 304', destination: 'Engineering Block A' }); setActiveTab('routes'); }}
+                                className="flex items-center justify-between p-3 bg-white border border-zinc-200 rounded-xl cursor-pointer hover:bg-zinc-50 transition-colors"
+                              >
+                                <div className="flex items-center gap-3">
+                                  <div className="w-10 h-10 rounded-full bg-indigo-50 flex items-center justify-center text-indigo-600 shrink-0">
+                                    <RotateCcw className="w-4 h-4" />
+                                  </div>
+                                  <div className="text-left">
+                                    <p className="font-sans font-bold text-sm text-zinc-900">Science Lab 304</p>
+                                    <p className="text-xs text-zinc-500 font-semibold">Indoor • Building B</p>
+                                  </div>
+                                </div>
+                                <ChevronRight className="w-4 h-4 text-zinc-400" />
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </BottomSheet>
+                    )}
                   </div>
                 </div>
               )}
