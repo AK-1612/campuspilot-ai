@@ -23,6 +23,7 @@ export default function QRScanner({ onScanSuccess, onCancel }: QRScannerProps) {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   
   const videoRef = useRef<HTMLVideoElement>(null);
+  const localStreamRef = useRef<MediaStream | null>(null);
 
   // List of mock codes for quick simulation
   const mockCheckpoints = [
@@ -33,33 +34,53 @@ export default function QRScanner({ onScanSuccess, onCancel }: QRScannerProps) {
     { label: 'Admin Block Courtyard Patio', code: 'QR-ADM-CTR' }
   ];
 
-  // Request camera access on mount
-  useEffect(() => {
-    async function startCamera() {
-      try {
-        setCameraError(null);
-        const mediaStream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: 'environment' }
-        });
-        setStream(mediaStream);
-        setCameraActive(true);
+  const startCamera = async () => {
+    try {
+      setCameraError(null);
+      
+      // Stop any existing stream
+      if (localStreamRef.current) {
+        localStreamRef.current.getTracks().forEach(track => track.stop());
+      }
+
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        throw new Error('Camera access API is not supported in this browser environment or is blocked by security policies');
+      }
+
+      const mediaStream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'environment' }
+      });
+      
+      localStreamRef.current = mediaStream;
+      setStream(mediaStream);
+      setCameraActive(true);
+      
+      setTimeout(() => {
         if (videoRef.current) {
           videoRef.current.srcObject = mediaStream;
         }
-      } catch (err: any) {
-        console.warn('Camera access denied or unavailable. Fallback to simulator.', err);
-        setCameraError(err.message || 'Camera blocked or unsupported by hardware');
-        setCameraActive(false);
-      }
+      }, 100);
+    } catch (err: any) {
+      console.warn('Camera access denied or unavailable. Fallback to simulator.', err);
+      setCameraError(err.message || 'Camera blocked or unsupported by hardware');
+      setCameraActive(false);
     }
-    
+  };
+
+  const stopCamera = () => {
+    if (localStreamRef.current) {
+      localStreamRef.current.getTracks().forEach(track => track.stop());
+      localStreamRef.current = null;
+    }
+    setStream(null);
+    setCameraActive(false);
+  };
+
+  // Request camera access on mount
+  useEffect(() => {
     startCamera();
-    
     return () => {
-      // Clean up camera stream tracks
-      if (stream) {
-        stream.getTracks().forEach(track => track.stop());
-      }
+      stopCamera();
     };
   }, []);
 
@@ -105,6 +126,14 @@ export default function QRScanner({ onScanSuccess, onCancel }: QRScannerProps) {
               <p className="text-[11px] text-zinc-500 font-semibold leading-normal">
                 {cameraError ? `${cameraError}.` : 'Camera permission requested.'} Using fallback scanning dashboard.
               </p>
+              
+              <button
+                type="button"
+                onClick={startCamera}
+                className="w-full mt-2 py-2.5 bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs uppercase tracking-wider rounded-xl transition-all active:scale-[0.98] cursor-pointer"
+              >
+                Enable Camera Scanner
+              </button>
             </div>
           </div>
         )}
@@ -145,12 +174,7 @@ export default function QRScanner({ onScanSuccess, onCancel }: QRScannerProps) {
             }
           `}</style>
 
-          <div className="text-center bg-black/60 backdrop-blur-sm px-4 py-2.5 rounded-xl border border-zinc-800/80 shadow-md">
-            <QrCode className="w-6 h-6 text-teal-400 mx-auto mb-1 animate-pulse" />
-            <span className="text-[11px] tracking-wider font-extrabold uppercase text-zinc-300">
-              {loading ? 'Decrypting...' : 'Scanning active'}
-            </span>
-          </div>
+
         </div>
       </div>
 
