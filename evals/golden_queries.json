@@ -3,60 +3,160 @@
     "id": "q1",
     "query": "Take me to the library.",
     "profile": "Wheelchair",
-    "expected_intent": "navigate"
+    "expected_intent": "navigate",
+    "expected_tool": "route_query",
+    "notes": "Standard navigation; wheelchair profile must trigger avoid_stairs=true"
   },
   {
     "id": "q2",
     "query": "Where is the nearest restroom?",
     "profile": "Vision-impaired",
-    "expected_intent": "find_facility"
+    "expected_intent": "find_facility",
+    "expected_tool": "route_query",
+    "notes": "Facility lookup; vision-impaired profile must trigger detailed_landmarks=true"
   },
   {
     "id": "q3",
     "query": "I fell down the stairs, I need help!",
     "profile": "Invisible",
-    "expected_intent": "emergency"
+    "expected_intent": "emergency",
+    "expected_tool": "flag_obstacle",
+    "notes": "Emergency override — must take strict priority over all other intents"
   },
   {
     "id": "q4",
     "query": "Is there a ramp to the main building?",
     "profile": "Wheelchair",
-    "expected_intent": "accessibility_query"
+    "expected_intent": "accessibility_query",
+    "expected_tool": "route_query",
+    "notes": "Accessibility-specific query, not a navigation request"
   },
   {
     "id": "q5",
     "query": "Go to the cafeteria.",
     "profile": "Cognitive",
-    "expected_intent": "navigate"
+    "expected_intent": "navigate",
+    "expected_tool": "route_query",
+    "notes": "Simple navigation; cognitive profile must trigger simplified_steps=true"
   },
   {
     "id": "q6",
     "query": "Where can I find a quiet room?",
     "profile": "Cognitive",
-    "expected_intent": "find_facility"
+    "expected_intent": "find_facility",
+    "expected_tool": "route_query",
+    "notes": "Facility-specific query with cognitive profile"
   },
   {
     "id": "q7",
     "query": "Route to the CS department.",
     "profile": "Hearing-impaired",
-    "expected_intent": "navigate"
+    "expected_intent": "navigate",
+    "expected_tool": "route_query",
+    "notes": "Navigation with hearing-impaired profile; must trigger visual_cues_only=true"
   },
   {
     "id": "q8",
     "query": "I'm lost.",
     "profile": "Invisible",
-    "expected_intent": "emergency"
+    "expected_intent": "emergency",
+    "expected_tool": "flag_obstacle",
+    "notes": "Implicit distress signal; should be classified as emergency"
   },
   {
     "id": "q9",
     "query": "Does the engineering building have an elevator?",
     "profile": "Wheelchair",
-    "expected_intent": "accessibility_query"
+    "expected_intent": "accessibility_query",
+    "expected_tool": "route_query",
+    "notes": "Verifies accessibility query detection for elevator keywords"
   },
   {
     "id": "q10",
     "query": "Directions to room 101.",
     "profile": "Vision-impaired",
-    "expected_intent": "navigate"
+    "expected_intent": "navigate",
+    "expected_tool": "route_query",
+    "notes": "Specific room navigation with vision-impaired landmark enrichment"
+  },
+  {
+    "id": "q11",
+    "query": "Fire alarm is going off near the gym.",
+    "profile": "Hearing-impaired",
+    "expected_intent": "emergency",
+    "expected_tool": "flag_obstacle",
+    "notes": "Fire keyword triggers emergency; hearing-impaired adds visual alert context"
+  },
+  {
+    "id": "q12",
+    "query": "Find the nearest accessible parking.",
+    "profile": "Wheelchair",
+    "expected_intent": "find_facility",
+    "expected_tool": "route_query",
+    "notes": "Accessible parking is a find_facility intent, not navigate"
+  },
+  {
+    "id": "q13",
+    "query": "Navigate to the student health centre.",
+    "profile": "Cognitive",
+    "expected_intent": "navigate",
+    "expected_tool": "route_query",
+    "notes": "navigate keyword explicit; simplified steps required for cognitive profile"
+  },
+  {
+    "id": "q14",
+    "query": "I need to get to the admin office urgently.",
+    "profile": "Invisible",
+    "expected_intent": "navigate",
+    "expected_tool": "route_query",
+    "notes": "Urgency does not override to emergency without a distress keyword"
+  },
+  {
+    "id": "q15",
+    "query": "Is the main auditorium wheelchair accessible?",
+    "profile": "Wheelchair",
+    "expected_intent": "accessibility_query",
+    "expected_tool": "route_query",
+    "notes": "accessibility_query: wheelchair keyword + 'accessible' keyword"
+  },
+  {
+    "id": "q16",
+    "query": "I need police. Someone stole my bag.",
+    "profile": "Invisible",
+    "expected_intent": "emergency",
+    "expected_tool": "flag_obstacle",
+    "notes": "police keyword must trigger emergency classification immediately"
+  },
+  {
+    "id": "q17",
+    "query": "Where is the science block?",
+    "profile": "Vision-impaired",
+    "expected_intent": "find_facility",
+    "expected_tool": "route_query",
+    "notes": "where is pattern triggers find_facility; detailed landmarks expected"
+  },
+  {
+    "id": "q18",
+    "query": "Go to the principal's office.",
+    "profile": "Cognitive",
+    "expected_intent": "navigate",
+    "expected_tool": "route_query",
+    "notes": "Go to pattern triggers navigate; simplified steps for cognitive profile"
+  },
+  {
+    "id": "q19",
+    "query": "Are there tactile paths near the library entrance?",
+    "profile": "Vision-impaired",
+    "expected_intent": "accessibility_query",
+    "expected_tool": "route_query",
+    "notes": "Accessibility-specific query focused on tactile navigation infrastructure"
+  },
+  {
+    "id": "q20",
+    "query": "I am hurt and cannot move.",
+    "profile": "Invisible",
+    "expected_intent": "emergency",
+    "expected_tool": "flag_obstacle",
+    "notes": "hurt keyword must trigger emergency; Invisible profile as fallback"
   }
 ]

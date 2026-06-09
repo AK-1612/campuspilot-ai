@@ -1,19 +1,89 @@
-# CampusPilot AI Architecture
+# CampusPilot AI — Architecture Document
 
-## Agentic Flow vs. RAG-Only
-CampusPilot AI rejects the standard RAG paradigm. A purely RAG-based system is passive—it retrieves facts and summarizes them. Navigating a campus is active. Our system uses an **Agentic Flow**. 
+**Author:** Anshul Kumaria (AI & Intelligence Lead)  
+**Version:** 1.0 | June 9, 2026
 
-When a user asks a question, the LLM acts as an orchestrator. It uses the **ReAct (Reason + Act)** pattern. 
-1. **Thought**: The agent analyzes the user's intent, constraints (Disability Profile), and last known QR location.
-2. **Action**: The agent selects a tool (e.g., `qr_lookup` to pinpoint location, or `route_query` to query the Neo4j graph).
-3. **Observation**: The tool returns raw data.
-4. **Thought/Action**: The agent formulates the final step-by-step response based on the observations.
+---
 
-## Tool Call Chain Example
-Consider a wheelchair user at the main entrance who scans a QR code and asks: *"Take me to the library."*
+## 1. Why Agentic AI and Not RAG-Only?
 
-1. **User Input**: "Take me to the library" (Context: `qr_id=102`, Profile=`Wheelchair`).
-2. **Agent Thought**: I need to know where QR 102 is, and then calculate a wheelchair-accessible route to the library.
-3. **Action 1**: `qr_lookup("102")` -> returns `Main Entrance`.
-4. **Action 2**: `route_query(start="Main Entrance", end="Library", profile="Wheelchair")` -> returns `Path ignoring stairs, using Elevator B`.
-5. **Final Output**: The agent generates a natural language response: *"You are at the Main Entrance. Proceed straight to Elevator B, take it to the 2nd floor, and the library will be on your right."*
+Most AI navigation assistants are built on a **Retrieval-Augmented Generation (RAG)** architecture: the user asks a question, the system retrieves relevant chunks from a document store, and the LLM summarises them into a response. This works well for question-answering over static content — but campus navigation is not question-answering. It is **action-chaining**.
+
+When a wheelchair user says *"take me to the library"*, the system does not need to retrieve a paragraph about the library. It needs to:
+
+1. Know **where the user currently is** (via QR scan).
+2. Know **what routing constraints apply** (wheelchair → avoid stairs, prefer elevators).
+3. **Query a live graph database** (Neo4j) for the shortest accessible path.
+4. **Format a step-by-step response** using tactile, auditory, or simplified language depending on the profile.
+
+A RAG system cannot do steps 1–3 because it cannot call external tools or reason about what information it needs next. **An agent can.** This is the architectural justification for choosing LangChain's Tool Calling Agent pattern over a simpler RAG pipeline.
+
+---
+
+## 2. The ReAct Pattern
+
+CampusPilot AI implements the **ReAct (Reason + Act)** loop, as formalised by Yao et al. (2022). The LLM alternates between two phases:
+
+- **Thought**: The model introspects what information it is missing and decides what action to take next.
+- **Action**: The model invokes a tool and waits for the observation (the tool's return value).
+
+This continues in a loop until the model has enough information to generate its final response.
+
+### Example Execution Trace
+
+**User:** "Take me to the library." | **Profile:** Wheelchair | **QR Scanned:** #102
+
+```
+Thought: I need the user's current location. I will look up QR #102.
+Action:  qr_lookup("102")
+Observation: "Main Entrance"
+
+Thought: I now know start=Main Entrance. The profile is Wheelchair,
+         so I must avoid stairs and prefer elevators.
+Action:  route_query(start="Main Entrance", end="Library", profile="Wheelchair")
+Observation: "Go straight → Elevator B → Floor 2 → Left → Library"
+
+Thought: I have the route. I will format a clear, step-by-step response.
+Final Response: "You are at the Main Entrance. Walk straight to Elevator B
+                (10 metres ahead). Take it to Floor 2. Turn left — the library
+                is 15 metres ahead on your right."
+```
+
+---
+
+## 3. Tool Registry
+
+The agent has access to four tools, each backed by a LangChain `@tool` decorator:
+
+| Tool | Purpose | Key Argument |
+|---|---|---|
+| `qr_lookup` | Resolves a QR code ID to a campus node | `qr_id: str` |
+| `route_query` | Queries Neo4j for the optimal route given a profile | `start_node, end_node, profile` |
+| `profile_detect` | Infers the user's disability profile from text if not explicitly set | `user_input: str` |
+| `flag_obstacle` | Records a temporary obstacle on the shadow map | `location, description` |
+
+The LLM autonomously decides which tools to call and in what order. This is not a hard-coded flow — it is emergent from the system prompt and the model's reasoning capability.
+
+---
+
+## 4. Memory and State Management
+
+Navigation is a **multi-turn problem**. A user might scan a QR code in message 1, ask a follow-up question in message 3, and report an obstacle in message 5 — all without rescanning. The `AgentMemory` class maintains:
+
+- **Conversation history**: every user/assistant turn is stored and prepended to each LLM call.
+- **Last known QR location**: persisted between turns so the agent knows where the user is even without rescanning.
+- **Active disability profile**: set at the start of a session and propagated to every `route_query` call automatically.
+
+---
+
+## 5. Emergency Handling Architecture
+
+Emergency responses bypass the LLM entirely. The `classify_intent()` function runs **before** the agent executor is invoked. If the intent is `emergency`, the system immediately returns a pre-cached safety response and calls `flag_obstacle()` to update the campus shadow map — all within milliseconds, without waiting for an LLM inference.
+
+This design decision is safety-critical: we cannot allow network latency or LLM inference time to delay an SOS response.
+
+---
+
+## 6. Disability Profile Integration
+
+The five profiles (Wheelchair, Vision-impaired, Hearing-impaired, Cognitive, Invisible) are not described in the system prompt. They are operationalised as **routing constraint dictionaries** generated by `profile_handler.py` and passed directly into the `route_query` tool arguments. This ensures profiles affect the graph traversal algorithm at the database level, not just the text output — making the routing objectively safe, not just verbally reassuring.
