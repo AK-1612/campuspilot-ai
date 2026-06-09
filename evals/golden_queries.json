@@ -1,0 +1,62 @@
+[
+  {
+    "id": "q1",
+    "query": "Take me to the library.",
+    "profile": "Wheelchair",
+    "expected_intent": "navigate"
+  },
+  {
+    "id": "q2",
+    "query": "Where is the nearest restroom?",
+    "profile": "Vision-impaired",
+    "expected_intent": "find_facility"
+  },
+  {
+    "id": "q3",
+    "query": "I fell down the stairs, I need help!",
+    "profile": "Invisible",
+    "expected_intent": "emergency"
+  },
+  {
+    "id": "q4",
+    "query": "Is there a ramp to the main building?",
+    "profile": "Wheelchair",
+    "expected_intent": "accessibility_query"
+  },
+  {
+    "id": "q5",
+    "query": "Go to the cafeteria.",
+    "profile": "Cognitive",
+    "expected_intent": "navigate"
+  },
+  {
+    "id": "q6",
+    "query": "Where can I find a quiet room?",
+    "profile": "Cognitive",
+    "expected_intent": "find_facility"
+  },
+  {
+    "id": "q7",
+    "query": "Route to the CS department.",
+    "profile": "Hearing-impaired",
+    "expected_intent": "navigate"
+  },
+  {
+    "id": "q8",
+    "query": "I'm lost.",
+    "profile": "Invisible",
+    "expected_intent": "emergency"
+  },
+  {
+    "id": "q9",
+    "query": "Does the engineering building have an elevator?",
+    "profile": "Wheelchair",
+    "expected_intent": "accessibility_query"
+  },
+  {
+    "id": "q10",
+    "query": "Directions to room 101.",
+    "profile": "Vision-impaired",
+    "expected_intent": "navigate"
+  }
+]
