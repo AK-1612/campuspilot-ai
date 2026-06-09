@@ -53,7 +53,13 @@ function LocationUpdater({ position }: { position: [number, number] }) {
 // Default fallback: IIT Bombay campus (a real university campus)
 const DEFAULT_CENTER: [number, number] = [19.1334, 72.9133];
 
-function RoutingControl({ origin, destination }: { origin: [number, number], destination: [number, number] }) {
+interface RoutingControlProps {
+  origin: [number, number];
+  destination: [number, number];
+  onRouteCalculated?: (steps: any[], summary: { distanceMeters: number; durationSeconds: number }) => void;
+}
+
+function RoutingControl({ origin, destination, onRouteCalculated }: RoutingControlProps) {
   const map = useMap();
 
   useEffect(() => {
@@ -76,6 +82,49 @@ function RoutingControl({ origin, destination }: { origin: [number, number], des
       }
     }).addTo(map);
 
+    if (onRouteCalculated) {
+      routingControl.on('routesfound', (e: any) => {
+        const routes = e.routes;
+        if (routes && routes.length > 0) {
+          const route = routes[0];
+          const summary = {
+            distanceMeters: route.summary.totalDistance || 0,
+            durationSeconds: route.summary.totalTime || 0
+          };
+
+          // Map instructions to navigation steps
+          const steps = (route.instructions || []).map((inst: any, idx: number) => {
+            const coordIndex = inst.index;
+            const latLng = route.coordinates[coordIndex];
+            const coords: [number, number] | undefined = latLng ? [latLng.lat, latLng.lng] : undefined;
+
+            let directionIcon = 'straight';
+            const type = (inst.type || '').toLowerCase();
+            if (type.includes('left')) {
+              directionIcon = 'turn_left';
+            } else if (type.includes('right')) {
+              directionIcon = 'turn_right';
+            } else if (type.includes('elevator')) {
+              directionIcon = 'elevator';
+            } else if (type.includes('stair') || type.includes('warn')) {
+              directionIcon = 'warning';
+            }
+
+            return {
+              stepIndex: idx + 1,
+              instruction: inst.text || 'Continue along the walkway',
+              subInstructions: `Proceed for ${(inst.distance || 0).toFixed(0)}m`,
+              directionIcon,
+              distanceAhead: `${(inst.distance || 0).toFixed(0)}m`,
+              coords
+            };
+          });
+
+          onRouteCalculated(steps, summary);
+        }
+      });
+    }
+
     return () => {
       try {
         map.removeControl(routingControl);
@@ -83,7 +132,7 @@ function RoutingControl({ origin, destination }: { origin: [number, number], des
         // ignore
       }
     };
-  }, [map, origin, destination]);
+  }, [map, origin, destination, onRouteCalculated]);
 
   return null;
 }
@@ -95,13 +144,17 @@ interface CampusMapProps {
   showControls?: boolean;
   routeOrigin?: [number, number];
   routeDestination?: [number, number];
+  onRouteCalculated?: (steps: any[], summary: { distanceMeters: number; durationSeconds: number }) => void;
+  focusedStepCoords?: [number, number] | null;
 }
 
 export default function CampusMap({
   className = '',
   showControls = false,
   routeOrigin,
-  routeDestination
+  routeDestination,
+  onRouteCalculated,
+  focusedStepCoords
 }: CampusMapProps) {
   const [userPos, setUserPos] = useState<[number, number] | null>(null);
   const [locating, setLocating] = useState(true);
@@ -113,7 +166,6 @@ export default function CampusMap({
       return;
     }
 
-    // First quick fix, then watch for movement
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         setUserPos([pos.coords.latitude, pos.coords.longitude]);
@@ -139,11 +191,12 @@ export default function CampusMap({
   }, []);
 
   const center = userPos ?? DEFAULT_CENTER;
+  const mapCenter = focusedStepCoords ?? center;
 
   return (
     <div className={`relative w-full h-full ${className}`}>
       <MapContainer
-        center={center}
+        center={mapCenter}
         zoom={17}
         zoomControl={showControls}
         scrollWheelZoom={false}
@@ -152,17 +205,16 @@ export default function CampusMap({
         attributionControl={true}
         style={{ width: '100%', height: '100%' }}
       >
-        {/* Clean, light OpenStreetMap tile style via CartoDB Positron */}
         <TileLayer
           url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; <a href="https://carto.com/">CARTO</a>'
           maxZoom={20}
         />
 
-        {/* Fly-to updater */}
-        <LocationUpdater position={center} />
+        {/* Smooth location/focal updater */}
+        <LocationUpdater position={mapCenter} />
 
-        {/* User location: pulsing dot + accuracy circle */}
+        {/* User location dot */}
         {userPos && (
           <>
             <Circle
@@ -179,12 +231,31 @@ export default function CampusMap({
           </>
         )}
 
-        {/* Route display if provided */}
-        {routeOrigin && routeDestination && (
-          <RoutingControl origin={routeOrigin} destination={routeDestination} />
+        {/* Dynamic focused step pulsing dot indicator */}
+        {focusedStepCoords && (
+          <Marker
+            position={focusedStepCoords}
+            icon={L.divIcon({
+              className: '',
+              html: `
+                <div class="focused-step-marker">
+                  <div style="position: absolute; width: 20px; height: 20px; border: 3.5px solid #002f5c; border-radius: 50%; background: #60f8cb; box-shadow: 0 0 10px rgba(0,47,92,0.6); transform: translate(-10px, -10px); animation: pulse 1.5s infinite"></div>
+                </div>
+              `,
+              iconSize: [20, 20],
+              iconAnchor: [10, 10]
+            })}
+          />
         )}
 
-
+        {/* Route display if coordinates available */}
+        {routeOrigin && routeDestination && (
+          <RoutingControl 
+            origin={routeOrigin} 
+            destination={routeDestination} 
+            onRouteCalculated={onRouteCalculated}
+          />
+        )}
       </MapContainer>
 
       {/* Locating overlay */}

@@ -31,7 +31,7 @@ import { PROFILES, MOCK_HOTSPOTS } from './data';
 import SavedMapsView from './components/SavedMapsView';
 import ReportIssueView from './components/ReportIssueView';
 import AccessibilityView from './components/AccessibilityView';
-import SosAlertView from './components/SosAlertView';
+import SOSScreen from './components/SOSScreen';
 import RouteOptionsView from './components/RouteOptionsView';
 import ActiveNavigationView from './components/ActiveNavigationView';
 import CampusMap from './components/CampusMap';
@@ -141,7 +141,7 @@ export default function App() {
 
       {/* SOS Alert Fullscreen Trigger */}
       {sosActive && (
-        <SosAlertView
+        <SOSScreen
           onCancel={() => setSosActive(false)}
           lastKnownLocation="Engineering Block A — Ground Floor Entrance"
         />

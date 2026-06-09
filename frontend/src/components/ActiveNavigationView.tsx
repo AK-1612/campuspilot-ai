@@ -35,6 +35,11 @@ export default function ActiveNavigationView({
   const [currentStepIdx, setCurrentStepIdx] = useState<number>(2); // Starts on step 3 of 7
   const [showObstacleSuccess, setShowObstacleSuccess] = useState(false);
 
+  // State for dynamic outdoor routing
+  const [outdoorSteps, setOutdoorSteps] = useState<any[]>([]);
+  const [currentOutdoorStepIdx, setCurrentOutdoorStepIdx] = useState<number>(0);
+  const [routeSummary, setRouteSummary] = useState<{ distanceMeters: number; durationSeconds: number } | null>(null);
+
   const stepsList = DYNAMIC_STEPS;
   const totalSteps = stepsList.length;
   const activeStep = stepsList[currentStepIdx];
@@ -70,6 +75,75 @@ export default function ActiveNavigationView({
     }
   };
 
+  // Failsafe fallback outdoor steps between hotspots (e.g. library, main gate, science building, etc.)
+  const getFailsafeOutdoorSteps = () => {
+    return [
+      {
+        stepIndex: 1,
+        instruction: 'Depart towards the main campus walkway',
+        subInstructions: 'Proceed straight for 80m',
+        directionIcon: 'straight',
+        distanceAhead: '80m',
+        coords: routeOriginCoords || [19.1360, 72.9160]
+      },
+      {
+        stepIndex: 2,
+        instruction: 'Turn left onto Central Mall Path',
+        subInstructions: 'Pass by the Student Cafeteria on your right',
+        directionIcon: 'turn_left',
+        distanceAhead: '120m',
+        coords: [19.1340, 72.9140]
+      },
+      {
+        stepIndex: 3,
+        instruction: 'Turn right at the Quad corridor sign',
+        subInstructions: 'Use wheelchair step-free ramp pathway',
+        directionIcon: 'turn_right',
+        distanceAhead: '150m',
+        coords: [19.1334, 72.9133]
+      },
+      {
+        stepIndex: 4,
+        instruction: 'Arrive at ' + buildingName,
+        subInstructions: 'Your destination is ahead',
+        directionIcon: 'warning',
+        distanceAhead: 'Dest',
+        coords: routeDestinationCoords || [19.1325, 72.9120]
+      }
+    ];
+  };
+
+  const handleRouteCalculated = (steps: any[], summary: { distanceMeters: number; durationSeconds: number }) => {
+    if (steps && steps.length > 0) {
+      setOutdoorSteps(steps);
+      setRouteSummary(summary);
+      setCurrentOutdoorStepIdx(0);
+    }
+  };
+
+  const activeOutdoorSteps = outdoorSteps.length > 0 ? outdoorSteps : getFailsafeOutdoorSteps();
+  const totalOutdoorSteps = activeOutdoorSteps.length;
+  const activeOutdoorStep = activeOutdoorSteps[currentOutdoorStepIdx] || activeOutdoorSteps[0];
+  const focusedCoords = activeOutdoorStep ? activeOutdoorStep.coords : null;
+
+  const handleNextOutdoorStep = () => {
+    if (currentOutdoorStepIdx < totalOutdoorSteps - 1) {
+      setCurrentOutdoorStepIdx(prev => prev + 1);
+    } else {
+      setShowObstacleSuccess(true);
+      setTimeout(() => {
+        setShowObstacleSuccess(false);
+        onStopNav();
+      }, 2500);
+    }
+  };
+
+  const handlePrevOutdoorStep = () => {
+    if (currentOutdoorStepIdx > 0) {
+      setCurrentOutdoorStepIdx(prev => prev - 1);
+    }
+  };
+
   const currentPercent = Math.round(((currentStepIdx + 1) / totalSteps) * 100);
 
   const renderStepIcon = (direction: string) => {
@@ -98,12 +172,21 @@ export default function ActiveNavigationView({
     // OUTDOOR ACTIVE NAVIGATION LAYOUT
     return (
       <div className="w-full flex flex-col bg-[#eef1fa] min-h-screen select-none font-sans relative pb-32">
+        {showObstacleSuccess && (
+          <div className="fixed top-24 left-1/2 transform -translate-x-1/2 p-4 rounded-2xl bg-teal-50 border border-teal-500/30 text-teal-800 shadow-xl z-50 flex items-center gap-2">
+            <CheckCircle2 className="w-5 h-5 text-teal-600 animate-bounce" />
+            <span className="font-semibold text-xs">Destination Reached! Closing guide...</span>
+          </div>
+        )}
+
         {/* Fullscreen map simulator background */}
         <div className="absolute inset-0 z-0 overflow-hidden bg-[#e6e6f5] flex items-center justify-center">
           <CampusMap 
             showControls={false} 
             routeOrigin={routeOriginCoords} 
-            routeDestination={routeDestinationCoords} 
+            routeDestination={routeDestinationCoords}
+            onRouteCalculated={handleRouteCalculated}
+            focusedStepCoords={focusedCoords}
           />
         </div>
 
@@ -123,23 +206,26 @@ export default function ActiveNavigationView({
         {/* Top floating instruction box */}
         <div className="relative z-10 px-2 pt-2 w-full max-w-md mx-auto">
           <div className="bg-white rounded-[20px] p-4 shadow-lg border border-zinc-100 flex flex-col gap-3 text-left">
-            <div className="flex items-center">
+            <div className="flex items-center justify-between">
               <span className="bg-[#60f8cb]/20 text-[#00875a] text-[10px] font-extrabold uppercase tracking-widest px-3 py-1.5 rounded-full inline-flex items-center gap-1.5 leading-none">
                 <Eye className="w-3.5 h-3.5" />
-                Vision Mode
+                Outdoor Navigation
+              </span>
+              <span className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">
+                Step {currentOutdoorStepIdx + 1} of {totalOutdoorSteps}
               </span>
             </div>
             
             <div className="flex items-center gap-4">
               <div className="h-12 w-12 bg-[#002f5c] rounded-full flex items-center justify-center shrink-0 shadow-sm text-white">
-                <ArrowUp className="w-6 h-6 stroke-[3px]" />
+                {renderStepIcon(activeOutdoorStep?.directionIcon || 'straight')}
               </div>
-              <div>
-                <h2 className="text-lg font-black text-[#002f5c] leading-tight">
-                  Head towards Main Gate
+              <div className="flex-1">
+                <h2 className="text-sm font-bold text-[#002f5c] leading-snug">
+                  {activeOutdoorStep?.instruction}
                 </h2>
-                <p className="text-sm text-blue-600 font-bold mt-0.5">
-                  200m
+                <p className="text-xs text-blue-600 font-bold mt-1">
+                  {activeOutdoorStep?.subInstructions || activeOutdoorStep?.distanceAhead}
                 </p>
               </div>
             </div>
@@ -157,21 +243,42 @@ export default function ActiveNavigationView({
                     {buildingName}
                   </h2>
                   <p className="text-xs text-zinc-550 font-medium mt-1">
-                    Arriving at 10:45 AM • 12 min
+                    Arriving in {routeSummary ? Math.ceil(routeSummary.durationSeconds / 60) : '5'} mins • Speed: Standard
                   </p>
                 </div>
                 <span className="text-lg font-black text-emerald-700 shrink-0">
-                  1.2 km
+                  {routeSummary ? (routeSummary.distanceMeters / 1000).toFixed(2) + ' km' : '0.40 km'}
                 </span>
               </div>
 
-              {/* Static progress indicator */}
+              {/* Dynamic progress indicator */}
               <div className="w-full h-2.5 bg-zinc-100 rounded-full overflow-hidden">
-                <div className="h-full bg-teal-600 rounded-full" style={{ width: '40%' }} />
+                <div 
+                  className="h-full bg-teal-600 rounded-full transition-all duration-350" 
+                  style={{ width: `${Math.round(((currentOutdoorStepIdx + 1) / totalOutdoorSteps) * 100)}%` }} 
+                />
+              </div>
+
+              {/* Step Navigator controls */}
+              <div className="flex gap-2.5">
+                {currentOutdoorStepIdx > 0 && (
+                  <button
+                    onClick={handlePrevOutdoorStep}
+                    className="flex-1 h-12 border border-zinc-250 hover:bg-zinc-100 text-zinc-700 font-bold text-xs rounded-xl cursor-pointer transition-all"
+                  >
+                    Previous Step
+                  </button>
+                )}
+                <button
+                  onClick={handleNextOutdoorStep}
+                  className="flex-1 h-12 bg-[#002f5c] hover:bg-[#002447] text-white font-sans font-bold text-xs rounded-xl flex items-center justify-center gap-2 cursor-pointer shadow-sm transition-all active:scale-[0.98]"
+                >
+                  {currentOutdoorStepIdx === totalOutdoorSteps - 1 ? 'Finish' : 'Next Step'}
+                </button>
               </div>
 
               {/* Action triggers grid */}
-              <div className="flex flex-col gap-3">
+              <div className="flex flex-col gap-3 border-t border-zinc-150 pt-4">
                 <div className="flex gap-3">
                   {/* Report obstacle */}
                   <button

@@ -48,7 +48,7 @@ export default function QRScanner({ onScanSuccess, onCancel }: QRScannerProps) {
       }
 
       const mediaStream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'environment' }
+        video: { facingMode: { ideal: 'environment' } }
       });
       
       localStreamRef.current = mediaStream;
@@ -62,7 +62,11 @@ export default function QRScanner({ onScanSuccess, onCancel }: QRScannerProps) {
       }, 100);
     } catch (err: any) {
       console.warn('Camera access denied or unavailable. Fallback to simulator.', err);
-      setCameraError(err.message || 'Camera blocked or unsupported by hardware');
+      let errorFriendly = err.message || 'Camera blocked or unsupported by hardware';
+      if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+        errorFriendly = 'Camera permission was blocked. Please tap the lock icon in the URL bar, reset permissions, or tap "Site Settings" to allow Camera access.';
+      }
+      setCameraError(errorFriendly);
       setCameraActive(false);
     }
   };

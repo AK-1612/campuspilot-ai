@@ -100,7 +100,7 @@ export default function ReportIssueView({
       }
 
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'environment' }
+        video: { facingMode: { ideal: 'environment' } }
       });
       setVideoStream(stream);
       setIsCameraActive(true);
@@ -110,10 +110,15 @@ export default function ReportIssueView({
           videoRef.current.srcObject = stream;
         }
       }, 100);
-    } catch (err) {
+    } catch (err: any) {
       console.error("Camera access failed, falling back to manual upload:", err);
-      // Fallback: trigger standard file upload
-      fileInputRef.current?.click();
+      let errorFriendly = err.message || 'Camera blocked or unsupported';
+      if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+        errorFriendly = 'Camera permission was blocked. Please tap the lock/info icon in the URL bar and select "Site Settings" to allow Camera access.';
+        setUploadError(errorFriendly);
+      } else {
+        fileInputRef.current?.click();
+      }
       setShowPhotoOptions(false);
     }
   };
