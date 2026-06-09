@@ -1,0 +1,6 @@
+{
+  "name": "CampusPilot AI",
+  "description": "An accessibility-focused campus navigation app featuring indoor & outdoor route planning, offline maps, issue reporting, and emergency SOS alerts.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
