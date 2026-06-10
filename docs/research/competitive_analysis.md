@@ -1,51 +1,59 @@
-# Competitive Analysis — Indoor Navigation Solutions
+# Competitive Analysis
 
-**Author:** Atharva Deshmukh (Research & Literature Review Lead)  
-**Date:** June 9, 2026
+## Landscape
 
-CampusPilot AI occupies a unique space in the wayfinding landscape, specifically targeting accessible indoor navigation. This document provides a comparative analysis of the primary players in the space: GoodMaps, Wheelmap, BlindSquare, AccessNow, and IndoorAtlas.
+Accessible navigation is an active space, but existing tools tend to be either
+(a) single-disability focused, (b) beacon/hardware dependent, or (c) general
+maps with accessibility bolted on. Few combine **agentic autonomy + multiple
+disability profiles + campus-specific accessibility data** in one conversational
+assistant — which is CampusPilot's opening.
 
-## Comparative Feature Matrix
+## Competitors
 
-| Capability | GoodMaps | Wheelmap | BlindSquare | AccessNow | IndoorAtlas | CampusPilot AI |
-|---|---|---|---|---|---|---|
-| **Indoor Navigation** | High (LIDAR) | No (Outdoor only) | No (Outdoor only) | No (Crowdsourced POIs) | High (Geomagnetic) | **High (QR Checkpoints)** |
-| **Disability Coverage** | Blind/Low Vision | Wheelchair only | Blind/Low Vision | Wheelchair only | General | **5 Profiles** (Wheelchair, Vision, Hearing, Cognitive, Chronic) |
-| **Real-time Obstacles** | Manual Admin | No | No | Yes (User comments) | No | **Active Shadow Mapping** |
-| **Offline Support** | Poor (Requires cloud) | No | Poor | No | Moderate | **PWA Cache + BT Mesh** |
-| **Zero-Install (PWA)** | No (Native App) | Yes (Web version) | No (Native App) | Yes (Web version) | No (SDK only) | **Yes (PWA)** |
-| **Hardware Rollout Cost**| High (LIDAR scans) | N/A | N/A | N/A | Moderate (Calibration) | **Ultra-Low** (₹20/checkpoint) |
+| Product | What it does | Strengths | Gaps (our opportunity) |
+|---------|--------------|-----------|------------------------|
+| **Google Maps (accessibility features)** | Mainstream maps; "Accessible Places" wheelchair info, detailed walking/transit directions, screen-reader support | Ubiquitous, free, transit data, works outdoors | Weak indoors; not campus-specific; not conversational/agentic; limited per-disability personalisation[^perkins] |
+| **Navigine** | Indoor-navigation SDK marketed for accessible wayfinding (universities, hospitals) | Real-time rerouting (e.g. "elevator out of service"), universal-design framing, ADA-aligned | A B2B SDK, not an end-user assistant; needs venue integration; not an autonomous agent[^navigine] |
+| **WayMap** | Free indoor + outdoor navigation for vision loss; text-based, AT-friendly | No beacons needed in some areas, transit guidance, works with assistive tech | Vision-focused; not multi-disability; not conversational/agentic[^perkins] |
+| **ClickAndGo** | Beacon-based wayfinding for visual impairment; library of venues incl. college campuses | Pre-mapped campuses, narrative directions, iBeacon integration | Requires beacon hardware per venue; vision-only; not agentic[^nls] |
+| **Lazarillo** | Free voice-guided app for the blind; indoor/outdoor, POI, MapVX platform | Turn-by-turn voice, POI info, venue partnerships | Vision-focused; beacon/Bluetooth dependent indoors; not multi-disability[^lazarillo] |
+| **Aira** | Connects blind/low-vision users to live human agents for visual interpretation | High-quality help via real humans | Human-in-the-loop (cost, availability); vision-only; not autonomous AI[^perkins] |
+| **Be My Eyes** | Volunteers/AI describe surroundings for blind/low-vision users | Free, large community, AI + human options | General visual assistance, not turn-by-turn accessible routing; vision-only[^perkins] |
+| **MSU Guide (Michigan State)** | University accessible-navigation app: accessible-entrance info, wand feature for orientation | Genuinely campus-specific; serves multiple needs incl. autism, temporary injury | Single-campus, institution-built; not agentic/conversational; limited reuse[^msu] |
+| **Academic indoor-wayfinding apps (e.g. UC Santa Cruz / Manduchi)** | Research prototypes for indoor wayfinding + "safe return" where GPS fails; moving toward AI scene description | Strong research basis, addresses GPS-denied indoor spaces | Research-stage; vision-focused; not deployed products[^ucsc] |
+
+## How CampusPilot differs
+
+1. **Agentic, not scripted.** It plans and re-plans accessible routes and uses
+   tools/APIs to do so, rather than returning fixed answers (see
+   `why_agentic.md`).
+2. **Multi-disability by design.** Most competitors target *one* group
+   (usually vision). CampusPilot serves visual, motor, auditory, and cognitive
+   needs from one interface (see `disability_profiles.md`). This matters because
+   research finds route preferences are often *shared* across disabilities, so a
+   unified system can serve everyone better.[^insite]
+3. **Campus-specific + conversational.** Unlike Google Maps (general, indoor-weak)
+   and unlike institution-locked apps like MSU Guide, CampusPilot pairs
+   campus-level accessibility data with a natural-language agent.
+4. **QR positioning — no beacons.** Where ClickAndGo and Lazarillo depend on
+   BLE beacon *hardware* (cost + batteries to maintain), CampusPilot localises
+   via cheap, replaceable **QR codes** — far easier to deploy on a campus (see
+   `tech_stack_rationale.md`).[NLS][Lazarillo]
+5. **Offline-first PWA.** Built as an installable, offline-first progressive web
+   app, so it keeps working in campus signal dead-zones — many competitors need
+   connectivity.
+6. **Emergency-aware.** Queries are pre-classified, so emergencies get fast,
+   strict handling rather than a generic chatbot reply.
+
+> **[CONFIRM]** Swap in any competitor your PPT specifically named, and adjust
+> the differentiation points to match the exact features your team is building.
 
 ---
 
-## Detailed Competitor Breakdown
-
-### 1. GoodMaps
-- **Focus:** Primary wayfinding for blind and visually impaired users.
-- **Strengths:** High precision indoor positioning using advanced LIDAR mapping of buildings.
-- **Weaknesses:** Prohibitive deployment costs. Mapping a single campus building can cost thousands of dollars and requires professional surveying equipment. It also lacks offline support.
-- **CampusPilot Advantage:** We use ₹20 QR code checkpoints, which can be deployed in minutes by campus staff. We also serve 5 distinct disability profiles rather than only focusing on visual impairment.
-
-### 2. Wheelmap
-- **Focus:** Crowdsourced wheelchair accessibility mapping.
-- **Strengths:** Large global database of outdoor wheelchair accessibility ratings.
-- **Weaknesses:** Limited to wheelchair users; completely ignores cognitive, visual, and hearing disabilities. Does not support routing/navigation indoors.
-- **CampusPilot Advantage:** Indoor multi-floor routing with lift/stair configuration dynamically updated via user-reported obstacles.
-
-### 3. BlindSquare
-- **Focus:** GPS-based navigation for blind and visually impaired users.
-- **Strengths:** Excellent integration with third-party GPS databases and screen readers.
-- **Weaknesses:** Outdoor-only. Fails completely inside multi-level concrete academic blocks where GPS signals cannot penetrate.
-- **CampusPilot Advantage:** Precise indoor localization using QR code checkpoints at corridor junctions and entrances, mapping the "last mile" of wayfinding.
-
-### 4. AccessNow
-- **Focus:** Pinpointing and reviewing accessible places globally.
-- **Strengths:** Highly engaging community-led reviews.
-- **Weaknesses:** Does not compute step-by-step navigation paths; serves primarily as a directory.
-- **CampusPilot Advantage:** Active navigation router powered by FastAPI and a Neo4j Graph DB that provides step-by-step guidance tailored to the user's active profile.
-
-### 5. IndoorAtlas
-- **Focus:** Magnetic indoor positioning SDK.
-- **Strengths:** No hardware beacons required; maps magnetic anomalies inside buildings.
-- **Weaknesses:** Requires complex training runs, is sensitive to structural changes, and must be integrated into custom native apps.
-- **CampusPilot Advantage:** Our zero-install PWA is immediately usable by visitors. QR positioning is deterministic and does not suffer from drift or geomagnetic fluctuations.
+[^perkins]: Perkins School for the Blind — *Smartphone apps for Orientation and Mobility.* https://www.perkins.org/resource/how-i-use-my-phone-orientation-and-mobility/
+[^navigine]: Navigine — *Accessible Indoor Navigation: 2026 ADA Compliance Guide.* https://navigine.com/blog/accessible-indoor-navigation-the-2026-guide-to-compliance-and-universal-design/
+[^nls]: National Library Service for the Blind (Library of Congress) — *GPS and Wayfinding Apps.* https://www.loc.gov/nls/resources/general-resources-on-disabilities/gps-and-wayfinding-apps/
+[^lazarillo]: Lazarillo — *Free Apps for Blind People.* https://lazarillo.app/blog/freeappsforblindpeople/
+[^msu]: Michigan State University — *New navigation tool improves campus accessibility (MSU Guide).* https://msutoday.msu.edu/news/2016/new-navigation-tool-improves-campus-accessibility/
+[^ucsc]: UC Santa Cruz — *New apps will enable safer indoor navigation for blind people* (Manduchi, ACM TACCESS). https://news.ucsc.edu/2024/10/manduchi-wayfinding-apps/
+[^insite]: UC Irvine INsite — *Accessible Navigation.* https://insite.ics.uci.edu/projects/accessible-navigation

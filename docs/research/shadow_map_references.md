@@ -1,25 +1,46 @@
-# Shadow Mapping — Literature References
+# Shadow Map References
 
-**Author:** Atharva Deshmukh (Research & Literature Review Lead)  
-**Date:** June 9, 2026
-
-The shadow mapping concept used in CampusPilot AI—where a user-generated dynamic overlay corrects and updates a static base map—is anchored in academic literature regarding crowdsourced geographic information (VGI) and mobile spatial computing.
+> **[CONFIRM — still need your input.]** "Shadow map" is not in your README, so
+> it likely comes from the PPT. Now that I know positioning is **QR-based**, the
+> most probable meaning has changed. My best guess is **Interpretation A** below.
+> Tell me if that's right and I'll finalise this as one tight page.
 
 ---
 
-## Key Academic Foundations
+## Interpretation A (most likely) — QR coverage / "dead-zone" map
 
-### 1. Volunteered Geographic Information (VGI)
-- **Reference:** Goodchild, M. F. (2007). *Citizens as sensors: the world of volunteered geographic information*. GeoJournal, 69(4), 211-221.
-- **Concept:** Citizens act as distributed sensory nodes, mapping real-time micro-events faster than centralized mapping agencies.
-- **CampusPilot Integration:** Users scanning QR codes and reporting obstacles (wet floors, broken lifts) act as real-time sensors, enriching the static Neo4j graph model.
+With QR-anchor positioning, a user's location is only known *at* a scan point.
+Between anchors — or anywhere without a nearby code — the system is effectively
+"blind" to position. A **shadow map** in this sense documents the **coverage
+gaps**: the areas that fall in the "shadow" of QR placement, where localisation
+fails and anchors need to be added.
 
-### 2. Crowdsourced Indoor Map Construction & Correction
-- **Reference:** Shen, G. et al. (2015). *Walkie-Markie: In-door pathway mapping made easy*. ACM Transactions on Sensor Networks.
-- **Concept:** Leveraging standard mobile phone sensors (Wi-Fi, Bluetooth, IMU) to dynamically reconstruct indoor paths and corridors without pre-existing blueprints.
-- **CampusPilot Integration:** Shadow mapping overlays crowd-sourced telemetry data on official CAD floorplans to detect paths that are frequently traveled but absent from official maps, and vice versa.
+**Why this is the likely meaning:** the accessible-wayfinding literature stresses
+that positioning must be planned around coverage — GPS is unreliable indoors, so
+projects rely on **strategically placed anchors** (beacons, and by analogy QR
+codes) and must map where coverage exists vs. where it doesn't.[Springer-Mapping][Manduchi]
+Beacon/positioning deployments explicitly identify "key areas and strategic
+zones" to place anchors for precise movement — the same planning a QR shadow map
+supports.[Lazarillo][NLS]
 
-### 3. Dynamic Obstacle Routing for Accessibility
-- **Reference:** Sobek, A. & Miller, H. J. (2006). *U-Access: A web-based spatial decision support system for campus accessibility*. Cartography and Geographic Information Science.
-- **Concept:** Wayfinding systems must dynamically recalculate routes when path elements (lifts, ramps) fail, rather than relying on static accessible routes.
-- **CampusPilot Integration:** When a lift node's obstacle flag changes to active, our Neo4j pathfinder immediately re-weights or excludes that node for profile-based queries.
+**Use for CampusPilot:** map QR-covered vs. uncovered ("shadow") zones, then add
+anchors to close gaps and warn users when they're in a low-coverage area.
+
+---
+
+## Interpretation B (less likely) — shade / comfort routing
+
+A "shadow map" could instead mean a map of shaded vs. sun-exposed paths, to route
+comfort-sensitive users (heat sensitivity, certain conditions) along shaded
+routes — a recognised universal-design idea where routing follows user
+*preference/condition*, not just shortest distance.[INsite][ADA2026] If this is
+the meaning, we should also cite a shade/solar-exposure data source.
+
+---
+
+## What I need
+Reply **A** or **B** (or describe it), and I'll cut this to a single focused page
+and wire it into `data_strategy.md` and `tech_stack_rationale.md`.
+
+---
+*Sources: see `citations.md` — [Springer-Mapping], [Manduchi], [Lazarillo], [NLS], [INsite], [ADA2026].*

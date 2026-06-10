@@ -1,26 +1,61 @@
-# Innovation Justification — Three Non-Obvious Decisions
+# Innovation Justification
 
-**Author:** Atharva Deshmukh (Research & Literature Review Lead)  
-**Date:** June 9, 2026
+## The one-sentence claim
 
-CampusPilot AI rejected the standard industry approach to indoor navigation. We made three non-obvious decisions, each solving a real-world campus constraint. This document justifies why these choices constitute genuine engineering innovation rather than standard design.
+CampusPilot AI is novel because it combines **agentic autonomy**, **multi-disability
+inclusivity**, and a **conversational interface** into a single campus assistant
+that *plans and re-plans accessible routes in real time* — a combination that
+existing tools do not offer together.
+
+## Why that combination is genuinely new
+
+The market scan (see `competitive_analysis.md`) shows the field is fragmented:
+
+- **General maps (Google Maps)** are powerful outdoors but weak indoors, not
+  campus-specific, and not conversational or agentic.[Perkins]
+- **Indoor wayfinding tools (WayMap, ClickAndGo, Lazarillo)** are typically
+  **vision-focused** and often depend on a specific beacon vendor.[Perkins][NLS][Lazarillo]
+- **Human-assist apps (Aira, Be My Eyes)** rely on live humans — great quality,
+  but limited by cost/availability and again vision-centric.[Perkins]
+- **Institution-built apps (MSU Guide)** are genuinely campus-specific and serve
+  multiple needs, but are single-campus and not agentic/conversational.[MSU]
+- **Research prototypes (UC Santa Cruz / Manduchi, UC Irvine INsite)** push the
+  science of indoor and cross-disability navigation but are not deployed
+  products.[Manduchi][INsite]
+
+CampusPilot sits in the **white space** between these: agentic + multi-disability
++ conversational + campus-grounded.
+
+## Specific innovations
+
+1. **Agentic accessible routing over a graph.** Rather than returning a fixed
+   route, a LangChain agent (Llama 3.3 70B via Groq) calls tools to traverse a
+   Neo4j accessibility graph and **re-plans** when a path is flagged blocked —
+   autonomous, multi-step behaviour a scripted bot cannot do (see
+   `why_agentic.md`).[IBM-Agentic][arXiv-Agentic]
+
+2. **QR positioning instead of beacons.** Indoor location uses cheap, replaceable
+   **QR codes** — no beacon hardware or batteries to maintain — making campus-wide
+   deployment realistic where beacon-based competitors struggle.[NLS][Lazarillo]
+
+3. **One system for five disability profiles.** Most competitors serve one group.
+   CampusPilot serves 5 profiles from one engine, leaning on the research finding
+   that **route preferences are shared across disabilities** — efficient *and*
+   more inclusive.[INsite]
+
+4. **Offline-first + emergency-aware + conversational.** An installable offline
+   PWA keeps working in dead-zones; queries are pre-classified so emergencies get
+   strict handling; and plain-language access lowers the barrier — especially for
+   cognitive/neurodivergent users.[ADA2026]
+
+## Why it matters now
+Public universities face an **April 2026 ADA digital-accessibility deadline**, so
+institutions need accessible, conformant campus tools — making CampusPilot timely
+as well as novel.[ADA2026]
+
+> **[CONFIRM]** If your PPT framed the innovation differently (a specific feature,
+> algorithm, or "secret sauce"), lead with that and use the points above as
+> support.
 
 ---
-
-## Innovation 1: QR Checkpoint Positioning over Active Beacons
-- **Obvious Choice:** Bluetooth Low Energy (BLE) beacons (iBeacons) or ultra-wideband (UWB) receivers.
-- **The Constraint:** University campuses are highly fragmented, and installing active electronics across thousands of square meters is expensive. Beacons require batteries that must be replaced, suffer from signal attenuation behind concrete walls, and require professional installation.
-- **Our Innovation:** A deterministic network of physical QR codes placed at key junctions. 
-- **Why it's non-obvious:** Traditional wisdom holds that QR codes are "low-tech" or inconvenient. However, QR codes cost ₹20 per point (vs. ₹3,000 per beacon), require zero electricity, never run out of battery, and have 100% reliability. By scanning a QR code, the user establishes a localized "ground truth" location instantly without signal drift. 
-
-## Innovation 2: Active Shadow Mapping over Static Blueprints
-- **Obvious Choice:** Importing official CAD files and locking them down as static route paths.
-- **The Constraint:** Campus environments are dynamic. Lifts break, hallways are blocked for exams, and temporary building works block ramps. If an accessibility app directs a wheelchair user to a lift that is broken, the app has failed.
-- **Our Innovation:** The "Shadow Map" overlay. A dynamic graph database layer that tracks user telemetry and reported obstacles.
-- **Why it's non-obvious:** Instead of treating floorplans as source of truth, we treat user reports as active sensors. When multiple users flag a lift as out-of-order, or our system detects that users are taking bypass routes, the Neo4j graph weight is adjusted in real-time. The system heals itself automatically as usage grows.
-
-## Innovation 3: 5-Profile Wayfinding over Binary Wheelchair Routing
-- **Obvious Choice:** Providing a standard route and a single "accessible" checkbox (usually only avoiding stairs).
-- **The Constraint:** Disability is highly diverse. Visual, cognitive, and chronic exhaustion profiles require completely different wayfinding approaches that standard routing engines ignore.
-- **Our Innovation:** Five active navigation profiles built directly into the graph traversal logic.
-- **Why it's non-obvious:** We proved that accessibility is not a binary toggle. A visually impaired user needs detailed audio landmarks (which increases cognitive load for others). A cognitively impaired user needs simple, step-by-step guidance. A user with chronic fatigue needs short paths with frequent resting benches. Our Cypher query traverses the Neo4j digital twin with profile-specific edge weighting, providing a customized experience for each user category.
+*Sources: see `citations.md` — [Perkins], [NLS], [Lazarillo], [MSU], [Manduchi], [INsite], [IBM-Agentic], [arXiv-Agentic], [ADA2026].*

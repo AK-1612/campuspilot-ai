@@ -1,54 +1,36 @@
-# CampusPilot AI — Master Documentation Index
+# CampusPilot AI — Documentation Index
 
-Welcome to the documentation suite for CampusPilot AI. This index categorizes all project documents, design records, and research reports generated for the Capgemini Build-a-thon 2026.
+> **CampusPilot AI** — Agentic AI-powered accessible campus navigation: a LangChain
+> agent (Llama 3.3 70B via Groq) that routes over a Neo4j accessibility graph,
+> locates users via QR codes, supports 5 disability profiles, and runs as an
+> offline-first PWA. Built for Capgemini Build-a-thon 2026.
 
----
+This folder holds the research, rationale, and risk documentation for the
+project. It is the single entry point — start here, then follow the links.
 
-## 1. Core Architecture & System Design
-- [Core Architecture Plan](file:///Users/anshulk/Downloads/CapGemini./campuspilot-ai/docs/architecture.md) — Mermaid component flow, graph schema definitions, and path calculation logic.
-- [AI Architecture Details](file:///Users/anshulk/Downloads/CapGemini./campuspilot-ai/docs/ai_architecture.md) — Detailed review of ReAct loop, system prompts, memory, and intent classifiers.
-- [Shadow Map Design Specification](file:///Users/anshulk/Downloads/CapGemini./campuspilot-ai/docs/shadow_map_design.md) — Real-time user telemetry overlay for static graph correction.
-- [Bluetooth Mesh Specifications](file:///Users/anshulk/Downloads/CapGemini./campuspilot-ai/docs/mesh_design.md) — Offline device-to-device synchronization protocols.
-- [Architecture Presentation Slides Notes](file:///Users/anshulk/Downloads/CapGemini./campuspilot-ai/docs/arch_walkthrough_notes.md) — 3-minute architectural pitch script for evaluations.
+## Document map
 
----
+| # | Document | Path | Purpose | Status |
+|---|----------|------|---------|--------|
+| 1 | Why Agentic AI | [`research/why_agentic.md`](research/why_agentic.md) | Justifies using an *agentic* approach over a scripted chatbot (≥400 words) | ✅ Draft ready |
+| 2 | Competitive analysis | [`research/competitive_analysis.md`](research/competitive_analysis.md) | Market scan of existing accessible-navigation tools + our differentiation | ✅ Draft ready |
+| 3 | Verified citations | [`research/citations.md`](research/citations.md) | Master annotated reference list with live source URLs | ✅ Draft ready |
+| 4 | WCAG 2.1 compliance | [`research/wcag_compliance.md`](research/wcag_compliance.md) | How the product targets WCAG 2.1 (POUR / Level AA) | ✅ Draft ready |
+| 5 | Disability profile UX research | [`research/disability_profiles.md`](research/disability_profiles.md) | User personas and design implications per disability type | ⚠️ Confirm the exact 5 profile names |
+| 6 | Tech stack rationale | [`research/tech_stack_rationale.md`](research/tech_stack_rationale.md) | Pros/cons of each stack choice | ✅ Matches repo (Groq/Llama/LangChain/Neo4j/QR/PWA) |
+| 7 | Data strategy | [`research/data_strategy.md`](research/data_strategy.md) | Data sources, pipeline, quality, privacy | ✅ Updated (Neo4j graph + QR anchors) |
+| 8 | Shadow map references | [`research/shadow_map_references.md`](research/shadow_map_references.md) | References for the "shadow map" component | ⚠️ Confirm meaning (QR coverage vs. shade?) |
+| 9 | Innovation justification | [`innovation_justification.md`](innovation_justification.md) | What is genuinely novel about CampusPilot | ✅ Draft ready |
+| 10 | Risk & limitations | [`limitations_and_risks.md`](limitations_and_risks.md) | Honest assessment of risks + mitigations | ✅ Draft ready |
 
-## 2. Architecture Decision Records (ADRs)
-- [ADR-001: Neo4j Graph Database](file:///Users/anshulk/Downloads/CapGemini./campuspilot-ai/docs/adr/adr-001-neo4j.md) — Why graph databases are superior to traditional SQL/PostGIS for indoor wayfinding.
-- [ADR-002: FastAPI Framework](file:///Users/anshulk/Downloads/CapGemini./campuspilot-ai/docs/adr/adr-002-fastapi.md) — Choosing async Python REST frameworks over Django, Flask, or GraphQL.
-- [AI Design Decisions](file:///Users/anshulk/Downloads/CapGemini./campuspilot-ai/docs/ai_design_decisions.md) — Design rationales: LangChain vs LlamaIndex, Groq (Llama 3.3 70B) vs Claude, and heuristic pre-classification.
+## How to use this folder
 
----
-
-## 3. Product & Acceptance Specifications
-- [Problem Analysis & Root Causes](file:///Users/anshulk/Downloads/CapGemini./campuspilot-ai/docs/problem_analysis.md) — The 5 Whys analysis of why modern campus wayfinding fails disabled visitors.
-- [User Stories & Persona Analysis](file:///Users/anshulk/Downloads/CapGemini./campuspilot-ai/docs/user_stories/user_stories.md) — User personas (wheelchair, vision, cognitive, admin, emergency).
-- [Acceptance Criteria Specifications](file:///Users/anshulk/Downloads/CapGemini./campuspilot-ai/docs/acceptance_criteria/acceptance_criteria.md) — Detailed Given/When/Then scenarios.
-- [Code Quality & Development Standards](file:///Users/anshulk/Downloads/CapGemini./campuspilot-ai/docs/code_standards/code_standards.md) — Coding conventions, formatting, and naming constraints.
-
----
-
-## 4. Technical Feasibility & Deployment
-- [QR Deployment Cost Model](file:///Users/anshulk/Downloads/CapGemini./campuspilot-ai/docs/feasibility/qr_cost_model.md) — Cost calculations for campus-wide QR checkpoint deployment.
-- [Offline Mode Verification Plan](file:///Users/anshulk/Downloads/CapGemini./campuspilot-ai/docs/offline_test.md) — Offline testing scenarios, caching strategy, and verification checklist.
-- [E2E API Integration Test Specifications](file:///Users/anshulk/Downloads/CapGemini./campuspilot-ai/docs/integration_test.md) — Mock request/response schemas for `/navigate` and `/qr` endpoints.
-- [Smoke Test Readiness Report](file:///Users/anshulk/Downloads/CapGemini./campuspilot-ai/docs/smoke_test_report.md) — Go/No-Go report prior to final presentation day.
+- Anything marked ⚠️ has a `[CONFIRM]` note inside it — those are the spots
+  where I made a reasonable assumption that you should verify against your
+  actual project before submitting.
+- All external claims are cited; see `research/citations.md` for full URLs.
+- These are drafts to get you off 0%. Read them, make them your team's own
+  voice, and swap in any project-specific detail.
 
 ---
-
-## 5. Research & Literature Reviews
-- [Competitive Analysis Report](file:///Users/anshulk/Downloads/CapGemini./campuspilot-ai/docs/research/competitive_analysis.md) — Benchmarking against GoodMaps, Wheelmap, BlindSquare, AccessNow, and IndoorAtlas.
-- [WCAG 2.1 AA Accessibility Guidelines Mapping](file:///Users/anshulk/Downloads/CapGemini./campuspilot-ai/docs/research/wcag_compliance.md) — How the interface meets accessibility requirements.
-- [Disability Profile & UX Rationale](file:///Users/anshulk/Downloads/CapGemini./campuspilot-ai/docs/research/disability_profiles.md) — Research on cognitive load, physical mobility, sensory impairments, and chronic fatigue.
-- [Research Citations & Statistic Index](file:///Users/anshulk/Downloads/CapGemini./campuspilot-ai/docs/research/citations.md) — Verified sources for all facts used in the slide deck.
-- [Why Agentic AI?](file:///Users/anshulk/Downloads/CapGemini./campuspilot-ai/docs/research/why_agentic.md) — Evaluating agentic ReAct loops against RAG and traditional pattern-matching chatbots.
-- [Campus Data Strategy](file:///Users/anshulk/Downloads/CapGemini./campuspilot-ai/docs/research/data_strategy.md) — Sourcing, cleaning, modeling, and updating spatial datasets.
-- [Shadow Mapping Literature References](file:///Users/anshulk/Downloads/CapGemini./campuspilot-ai/docs/research/shadow_map_references.md) — Academic foundations of Volunteered Geographic Information (VGI) and crowdsourced map correction.
-
----
-
-## 6. Demo & Presentation Material
-- [Demo Scenarios & Fallback Plan](file:///Users/anshulk/Downloads/CapGemini./campuspilot-ai/docs/demo_script.md) — Script for standard, wheelchair, and vision-impaired live presentations.
-- [Agent Telemetry walkthrough Script](file:///Users/anshulk/Downloads/CapGemini./campuspilot-ai/demo/agent_demo_script.md) — Walkthrough of agent ReAct cycles and tool execution.
-- [Team Presentation Script](file:///Users/anshulk/Downloads/CapGemini./campuspilot-ai/docs/presentation_script.md) — Time-coded 30-minute script for the team on presentation day.
-- [Deep Dive Slides Construction Guide](file:///Users/anshulk/Downloads/CapGemini./campuspilot-ai/docs/presentation_slides_guide.md) — Exact outline mapping codebase modules to the 4 newly requested presentation slides.
+*Last updated: drafted for the team to review and finalise.*
