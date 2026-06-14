@@ -383,12 +383,6 @@ export default function ActiveNavigationView({
                 Active Navigation
               </span>
             </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="text-[10px] font-extrabold bg-[#60f8cb]/20 text-emerald-800 border border-emerald-500/10 px-3 py-1.5 rounded-full inline-flex items-center gap-1 leading-none uppercase tracking-wide">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping"></span> Live Audio Active
-            </span>
-          </div>
         </div>
 
         {/* Floor Selector */}
