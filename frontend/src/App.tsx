@@ -35,11 +35,13 @@ import SOSScreen from './components/SOSScreen';
 import RouteOptionsView from './components/RouteOptionsView';
 import ActiveNavigationView from './components/ActiveNavigationView';
 import OutdoorNavigationView from './components/OutdoorNavigationView';
+import IndoorMapSelector from './components/IndoorMapSelector';
 import CampusMap from './components/CampusMap';
 import BottomSheet from './components/BottomSheet';
 import LaptopLanding from './components/LaptopLanding';
 import QRScanner from './components/QRScanner';
 import NavigationChat from './components/NavigationChat';
+import { BuildingDef, getBuilding, INDOOR_MAPS, BUILDINGS } from './indoorMaps';
 
 // ─── POI helpers (used by Quick Destinations fetcher) ────────────────────────
 
@@ -106,7 +108,7 @@ export default function App() {
   // Navigation & configuration states
   const [activeTab, setActiveTab] = useState<'home' | 'routes' | 'scan' | 'saved' | 'access'>('home');
   const [accessibilityMode, setAccessibilityMode] = useState<NavigationMode>('wheelchair');
-  const [sosActive, setSosActive] = useState(false);
+  const [sosActive, setSosActive] = useState<boolean>(false);
   const [isQrScanning, setIsQrScanning] = useState(false);
 
   // Search & dynamic route states
@@ -115,6 +117,10 @@ export default function App() {
   const [activeNavigationBlockA, setActiveNavigationBlockA] = useState(false);
   const [isIndoorNav, setIsIndoorNav] = useState(true);
   const [activeRouteConfig, setActiveRouteConfig] = useState<{ origin: string; destination: string } | null>(null);
+
+  // Indoor map selector states
+  const [showIndoorMapSelector, setShowIndoorMapSelector] = useState(false);
+  const [selectedBuildingId, setSelectedBuildingId] = useState<string>('building-1-tech');
 
   // Helper to get coordinates
   const getCoordsForName = (name: string): [number, number] | undefined => {
@@ -283,6 +289,7 @@ export default function App() {
   const handleStartSimulatedBlockAFromScan = () => {
     setScanSuccessCard(false);
     setIsIndoorNav(true);
+    setSelectedBuildingId('building-1-tech');
     setActiveNavigationBlockA(true);
   };
 
@@ -321,6 +328,19 @@ export default function App() {
           }}
           onSosClick={triggerSos}
           initialDestination={outdoorNavInitialDest ?? undefined}
+        />
+      )}
+
+      {/* Indoor Map Selector — full-screen building picker */}
+      {showIndoorMapSelector && (
+        <IndoorMapSelector
+          onBack={() => setShowIndoorMapSelector(false)}
+          onSelectMap={(buildingId) => {
+            setSelectedBuildingId(buildingId);
+            setIsIndoorNav(true);
+            setActiveNavigationBlockA(true);
+            setShowIndoorMapSelector(false);
+          }}
         />
       )}
 
@@ -491,11 +511,12 @@ export default function App() {
               }}
               onReportObstacle={handleReportObstacleFromNav}
               onSosClick={triggerSos}
-              buildingName={isIndoorNav ? (scanSuccessData?.building || "Engineering Block A") : (activeRouteConfig?.destination || "Destination")}
+              buildingName={isIndoorNav ? (BUILDINGS.find(m => m.id === selectedBuildingId)?.name || "Engineering & Tech Building") : (activeRouteConfig?.destination || "Destination")}
               isIndoor={isIndoorNav}
               themeMode="light"
               routeOriginCoords={activeOriginCoords}
               routeDestinationCoords={activeDestCoords}
+              selectedMapId={selectedBuildingId}
             />
           ) : activeRouteConfig ? (
             /* ACTIVE 2: Multi-alternative Route selection container */
@@ -824,7 +845,7 @@ export default function App() {
               {activeTab === 'saved' && (
                 <SavedMapsView
                   onScanClick={() => setActiveTab('scan')}
-                  onNavigateToBlockA={() => setActiveNavigationBlockA(true)}
+                  onNavigateToBlockA={() => setShowIndoorMapSelector(true)}
                 />
               )}
 

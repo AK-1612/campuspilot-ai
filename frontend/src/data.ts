@@ -64,22 +64,31 @@ export const PROFILES: AccessibilityProfile[] = [
 
 export const INITIAL_MAPS: SavedMap[] = [
   {
-    id: 'eng-block-a',
-    name: 'Engineering Block A',
-    floorsCount: 4,
-    sizeMb: 1.2,
+    id: 'building-1-tech',
+    name: 'Engineering & Tech Building',
+    floorsCount: 3,
+    sizeMb: 7.5,
     imageThumbnail: 'https://lh3.googleusercontent.com/aida-public/AB6AXuB4EJiY_W3Qp7ZYtW5OTfdAa_bxOiSQin07ai5gxTzts3dZ2Y6J3gX-hY1wydyVh5VI00PdBbY6caJ6K8LspPSCVC9n_gIXqgUYmvo4v75jl50dhSePkfBz122LH2JaVN_Qu4k03KBt3TB1Begw6zwb-FnsoacpoB10O2FqnPP6d14fuSY5tAhvoQj_ck9FPVXxiMkjZPwJn7wbOEfbTEWFMD1iBFiJlzLB1w_VX2gIK7prrdAIUN1knq7jdFcPfXvJleeFvdCvY1c',
     category: 'academic'
   },
   {
-    id: 'main-library',
-    name: 'Main Library',
-    floorsCount: 7,
-    sizeMb: 3.5,
+    id: 'building-2-medical',
+    name: 'Medical & Student Life',
+    floorsCount: 3,
+    sizeMb: 5.2,
     imageThumbnail: 'https://lh3.googleusercontent.com/aida-public/AB6AXuC14v84jd0i6c8wRXsEunr2ESvdqtOlkLkDegE5i7ola496ed5ZuqgXpQ0q1Frp3pU-9E-tHKdjSZcJmQdY92yEYQRCweBtk2m1HJJcfNSfaNHayB1PB2TCDRfdJ_1MAH39-iZzAwEjedyck51L2uc0K8F8J0j8AMz_GOQ-hzlW2Vt6qZzW4yVgMzdzQ2LGpm6qS2hnq0HR6KTsSoTTi41CIMgD0y61jGtuBwA-rQ-GMVWtSQxZouuaWJ-NyvwSZesxXc5JEBtonvk',
-    category: 'academic'
+    category: 'facility'
+  },
+  {
+    id: 'building-3-admin',
+    name: 'Admin & Arts Building',
+    floorsCount: 4,
+    sizeMb: 6.8,
+    imageThumbnail: 'https://lh3.googleusercontent.com/aida-public/AB6AXuB4EJiY_W3Qp7ZYtW5OTfdAa_bxOiSQin07ai5gxTzts3dZ2Y6J3gX-hY1wydyVh5VI00PdBbY6caJ6K8LspPSCVC9n_gIXqgUYmvo4v75jl50dhSePkfBz122LH2JaVN_Qu4k03KBt3TB1Begw6zwb-FnsoacpoB10O2FqnPP6d14fuSY5tAhvoQj_ck9FPVXxiMkjZPwJn7wbOEfbTEWFMD1iBFiJlzLB1w_VX2gIK7prrdAIUN1knq7jdFcPfXvJleeFvdCvY1c',
+    category: 'admin'
   }
 ];
+
 
 export const INITIAL_ISSUES: HazardIssue[] = [
   {

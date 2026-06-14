@@ -3,11 +3,13 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState } from 'react';
-import { ArrowLeft, CheckCircle2, AlertTriangle, ArrowUp, Compass, ZoomIn, ZoomOut, Eye, XCircle } from 'lucide-react';
+import React, { useState, useMemo, useEffect } from 'react';
+import { ArrowLeft, CheckCircle2, AlertTriangle, ArrowUp, Compass, ZoomIn, ZoomOut, Eye, XCircle, Search } from 'lucide-react';
 import { DYNAMIC_STEPS } from '../data';
+import { getBuilding, renderBuildingSVG, GRID_LINES, GRID_COLS } from '../indoorMaps';
 import CampusMap from './CampusMap';
 import BottomSheet from './BottomSheet';
+import { generateDynamicRoute } from '../utils/routing';
 
 interface ActiveNavigationViewProps {
   onBack: () => void;
@@ -19,6 +21,7 @@ interface ActiveNavigationViewProps {
   themeMode?: 'light' | 'dark';
   routeOriginCoords?: [number, number];
   routeDestinationCoords?: [number, number];
+  selectedMapId?: string;
 }
 
 export default function ActiveNavigationView({
@@ -30,9 +33,10 @@ export default function ActiveNavigationView({
   isIndoor = true,
   themeMode = 'light',
   routeOriginCoords,
-  routeDestinationCoords
+  routeDestinationCoords,
+  selectedMapId = 'eng-block-a'
 }: ActiveNavigationViewProps) {
-  const [currentStepIdx, setCurrentStepIdx] = useState<number>(2); // Starts on step 3 of 7
+  const [currentStepIdx, setCurrentStepIdx] = useState<number>(0);
   const [showObstacleSuccess, setShowObstacleSuccess] = useState(false);
 
   // State for dynamic outdoor routing
@@ -40,22 +44,64 @@ export default function ActiveNavigationView({
   const [currentOutdoorStepIdx, setCurrentOutdoorStepIdx] = useState<number>(0);
   const [routeSummary, setRouteSummary] = useState<{ distanceMeters: number; durationSeconds: number } | null>(null);
 
-  const stepsList = DYNAMIC_STEPS;
+  // State for dynamic indoor routing
+  const [selectedRoomId, setSelectedRoomId] = useState<string | null>(null);
+  const [selectedFloorIdx, setSelectedFloorIdx] = useState<number>(0);
+
+  // Resolve building data from registry
+  const building = useMemo(() => getBuilding(selectedMapId), [selectedMapId]);
+
+  const indoorMap = useMemo(() => {
+    if (!building || !building.floors || building.floors.length === 0) return null;
+    return building.floors[selectedFloorIdx] || building.floors[0];
+  }, [building, selectedFloorIdx]);
+
+  const allRooms = useMemo(() => {
+    if (!building) return [];
+    return building.floors.flatMap((floor, fIdx) => 
+      (floor.rooms || []).map(r => ({ ...r, floorName: floor.name, floorIdx: fIdx }))
+    );
+  }, [building]);
+
+  useEffect(() => {
+    if (building && selectedRoomId) {
+      const fIdx = building.floors.findIndex(f => f.rooms?.some(r => r.id === selectedRoomId));
+      if (fIdx >= 0 && fIdx !== selectedFloorIdx) {
+        setSelectedFloorIdx(fIdx);
+        setCurrentStepIdx(0);
+      }
+    }
+  }, [building, selectedRoomId, selectedFloorIdx]);
+
+  const dynamicRoute = useMemo(() => {
+    if (!building || !selectedRoomId) return null;
+    let targetRoom = null;
+    let targetFloor = null;
+    for (const floor of building.floors) {
+      targetRoom = floor.rooms?.find(r => r.id === selectedRoomId);
+      if (targetRoom) {
+        targetFloor = floor;
+        break;
+      }
+    }
+    if (!targetRoom || !targetFloor || !targetFloor.entrance) return null;
+    return generateDynamicRoute(targetFloor.entrance, targetRoom, targetRoom.name);
+  }, [building, selectedRoomId]);
+
+  // Use dynamic route if selected, else map-specific steps or fallback
+  const stepsList = dynamicRoute ? dynamicRoute.steps : (indoorMap ? indoorMap.steps : DYNAMIC_STEPS);
   const totalSteps = stepsList.length;
-  const activeStep = stepsList[currentStepIdx];
+  const activeStep = stepsList[currentStepIdx] || stepsList[0];
 
-  // Coordinates for Indoor mode
-  const dotCoords = [
-    { cx: 350, cy: 520 }, // Step 1
-    { cx: 350, cy: 480 }, // Step 2
-    { cx: 350, cy: 450 }, // Step 3
-    { cx: 400, cy: 420 }, // Step 4
-    { cx: 480, cy: 300 }, // Step 5
-    { cx: 560, cy: 300 }, // Step 6
-    { cx: 560, cy: 380 }  // Step 7
-  ];
+  // Use dynamic dots or map-specific or fallback
+  const dotCoords = dynamicRoute ? dynamicRoute.dotCoords : (indoorMap ? indoorMap.dotCoords : [
+    { cx: 350, cy: 520 }, { cx: 350, cy: 480 }, { cx: 350, cy: 450 },
+    { cx: 400, cy: 420 }, { cx: 480, cy: 300 }, { cx: 560, cy: 300 }, { cx: 560, cy: 380 },
+  ]);
 
-  const activeCoord = dotCoords[currentStepIdx] || { cx: 350, cy: 480 };
+  const activeCoord = dotCoords[currentStepIdx] || dotCoords[0];
+  const routePath = dynamicRoute ? dynamicRoute.routePath : (indoorMap ? indoorMap.routePath : 'M350 540 Q 350 300 500 300 L 560 300 L 560 380');
+  const hazard = indoorMap?.hazard || { x: 432, y: 240, label: 'Spill Hazard' };
 
   const handleNextStep = () => {
     if (currentStepIdx < totalSteps - 1) {
@@ -344,6 +390,50 @@ export default function ActiveNavigationView({
             </span>
           </div>
         </div>
+
+        {/* Floor Selector */}
+        {building && building.floors.length > 1 && (
+          <div className="px-6 pb-2 pt-2 flex gap-2 overflow-x-auto no-scrollbar bg-white">
+            {building.floors.map((f, idx) => (
+              <button
+                key={f.id}
+                onClick={() => {
+                  setSelectedFloorIdx(idx);
+                }}
+                className={`px-4 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-all border cursor-pointer ${
+                  idx === selectedFloorIdx
+                    ? 'bg-[#002f5c] text-white border-[#002f5c]'
+                    : 'bg-white text-zinc-500 border-zinc-200 hover:bg-zinc-50'
+                }`}
+              >
+                Floor {idx + 1}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* Dynamic Destination Selector */}
+        {allRooms && allRooms.length > 0 && (
+          <div className="px-6 pb-4 pt-1 flex flex-col gap-1.5 bg-white">
+            <label className="text-[10px] font-extrabold text-zinc-400 uppercase tracking-widest pl-1">Target Destination</label>
+            <div className="flex items-center gap-2.5 bg-zinc-50 border border-zinc-200 rounded-xl px-3 py-2.5 shadow-sm focus-within:border-emerald-400 focus-within:ring-2 focus-within:ring-emerald-400/20 transition-all">
+              <Search className="w-4 h-4 text-zinc-400 shrink-0" />
+              <select
+                value={selectedRoomId || ''}
+                onChange={(e) => {
+                  setSelectedRoomId(e.target.value);
+                  setCurrentStepIdx(0);
+                }}
+                className="flex-1 bg-transparent border-none p-0 text-sm font-bold text-[#002f5c] focus:outline-none focus:ring-0 cursor-pointer"
+              >
+                <option value="">Select a room to navigate to...</option>
+                {allRooms.map(room => (
+                  <option key={room.id} value={room.id}>{room.name} (Floor {room.floorIdx + 1})</option>
+                ))}
+              </select>
+            </div>
+          </div>
+        )}
       </header>
 
       {showObstacleSuccess && (
@@ -355,7 +445,7 @@ export default function ActiveNavigationView({
 
       {/* Map blueprint canvas */}
       <main className="flex-1 relative overflow-hidden bg-zinc-100 flex items-center justify-center p-4">
-        {/* Schematic floor plan */}
+        {/* Schematic floor plan — dynamic per building */}
         <div className="absolute inset-0 flex items-center justify-center opacity-90 p-4">
           <svg
             className="w-full h-full max-h-full max-w-[500px] drop-shadow-md"
@@ -365,45 +455,17 @@ export default function ActiveNavigationView({
           >
             {/* Grid Lines */}
             <g stroke="currentColor" strokeOpacity="0.04" strokeWidth="1" className="text-zinc-650">
-              <path d="M0 100h800M0 200h800M0 300h800M0 400h800M0 500h800" />
-              <path d="M100 0v600M200 0v600M300 0v600M400 0v600M500 0v600M600 0v600M700 0v600" />
+              <path d={GRID_LINES} />
+              <path d={GRID_COLS} />
             </g>
 
-            {/* Main structural outside walls */}
-            <g stroke="#94a3b8" strokeLinecap="round" strokeLinejoin="round" strokeWidth="4">
-              <path d="M100 100h600v400H100z" fill="var(--bg-zinc-50, #ffffff)" strokeWidth="6" className="fill-white" />
-              <path d="M100 250h200v-150 M300 250h400 M100 400h200v100 M500 500v-250 M500 350h200 M600 250v-150" />
-            </g>
-
-            {/* Labels and individual room definitions */}
-            <rect fill="var(--bg-indigo-50, #f5f2ff)" height="110" rx="4" stroke="#64748b" strokeWidth="1" width="160" x="320" y="120" className="fill-indigo-50/40" />
-            <text fill="#43474f" fontFamily="Inter" fontSize="15" fontWeight="bold" textAnchor="middle" x="400" y="180" className="fill-zinc-700">
-              Room 101
-            </text>
-
-            <rect fill="var(--bg-indigo-50, #f5f2ff)" height="110" rx="4" stroke="#64748b" strokeWidth="1" width="160" x="120" y="120" className="fill-indigo-50/40" />
-            <text fill="#43474f" fontFamily="Inter" fontSize="15" fontWeight="bold" textAnchor="middle" x="200" y="180" className="fill-zinc-700">
-              Lab A
-            </text>
-
-            <rect fill="var(--bg-indigo-50, #f5f2ff)" height="110" rx="4" stroke="#64748b" strokeWidth="1" width="160" x="520" y="370" className="fill-indigo-50/40" />
-            <text fill="#43474f" fontFamily="Inter" fontSize="15" fontWeight="bold" textAnchor="middle" x="600" y="430" className="fill-zinc-700">
-              Corridor B
-            </text>
-
-            <rect fill="var(--bg-emerald-50, #e8e5ff)" height="65" rx="8" stroke="#3b82f6" strokeWidth="2.5" width="65" x="120" y="415" className="fill-emerald-50/40" />
-            <path d="M140 435v25M160 435v25M132 440h41" stroke="#3b82f6" strokeWidth="2.5" strokeLinecap="round" />
-            <text fill="#1e3a8a" fontFamily="Inter" fontSize="13" fontWeight="extrabold" textAnchor="middle" x="152" y="500" className="fill-blue-600">
-              Lift 2
-            </text>
-
-            <rect fill="#e2e0f9" height="110" rx="4" stroke="#747780" strokeWidth="1" width="60" x="620" y="120" className="fill-zinc-200" />
-            <path d="M620 140h60M620 160h60M620 180h60M620 200h60" stroke="#747780" strokeWidth="1" />
+            {/* Dynamic building rooms & walls from registry */}
+            {indoorMap && renderBuildingSVG(indoorMap.id)}
 
             {/* Custom active pathway */}
             <path
               className="dashed-route"
-              d="M350 540 Q 350 300 500 300 L 560 300 L 560 380"
+              d={routePath}
               fill="none"
               stroke="#00c49a"
               strokeLinecap="round"
@@ -414,14 +476,14 @@ export default function ActiveNavigationView({
             <circle cx={activeCoord.cx} cy={activeCoord.cy} fill="#00c49a" opacity="0.25" r="18" className="transition-all duration-500 ease-out animate-pulse" />
             <circle cx={activeCoord.cx} cy={activeCoord.cy} fill="#10b981" r="9" stroke="#ffffff" strokeWidth="2.5" className="transition-all duration-500 ease-out" />
 
-            {/* Warnings warning flag */}
-            <g transform="translate(470, 275)" strokeWidth="1">
+            {/* Hazard warning flag */}
+            <g transform={`translate(${hazard.x + 38}, ${hazard.y - 5})`} strokeWidth="1">
               <path d="M0 32 L18 0 L36 32 Z" fill="#f97316" stroke="#ca8a04" strokeLinejoin="round" strokeWidth="2" />
               <text fill="#ffffff" fontFamily="Inter" fontSize="18" fontWeight="black" textAnchor="middle" x="18" y="26">!</text>
             </g>
-            <rect fill="#fee2e2" height="28" rx="14" stroke="#ef4444" strokeWidth="1" width="112" x="432" y="240" className="fill-red-100" />
-            <text fill="#ef4444" fontFamily="Inter" fontSize="12" fontWeight="extrabold" textAnchor="middle" x="488" y="258">
-              Spill Hazard
+            <rect fill="#fee2e2" height="28" rx="14" stroke="#ef4444" strokeWidth="1" width="112" x={hazard.x} y={hazard.y} className="fill-red-100" />
+            <text fill="#ef4444" fontFamily="Inter" fontSize="12" fontWeight="extrabold" textAnchor="middle" x={hazard.x + 56} y={hazard.y + 18}>
+              {hazard.label}
             </text>
           </svg>
         </div>

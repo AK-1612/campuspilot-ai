@@ -4,9 +4,10 @@
  */
 
 import React, { useState } from 'react';
-import { Trash2, QrCode, Smartphone, DownloadCloud, Info, Building, MapPin, Compass } from 'lucide-react';
+import { Trash2, QrCode, Smartphone, DownloadCloud, Info, Building, MapPin, Compass, Layers } from 'lucide-react';
 import { SavedMap } from '../types';
 import { INITIAL_MAPS } from '../data';
+import { INDOOR_MAPS } from '../indoorMaps';
 
 interface SavedMapsViewProps {
   onScanClick: () => void;
@@ -50,7 +51,7 @@ export default function SavedMapsView({ onScanClick, onNavigateToBlockA }: Saved
 
   const renderMapOverlayIcon = (id: string) => {
     const defaultClass = "w-6 h-6 text-[#002f5c]";
-    if (id === 'eng-block-a') {
+    if (id === 'building-1-tech') {
       return <Building className={defaultClass} />;
     }
     return <MapPin className={defaultClass} />;
@@ -73,6 +74,15 @@ export default function SavedMapsView({ onScanClick, onNavigateToBlockA }: Saved
           Access your downloaded maps offline for quick navigation.
         </p>
       </header>
+
+      {/* Indoor Navigation CTA */}
+      <button
+        onClick={onNavigateToBlockA}
+        className="w-full mb-6 py-4 bg-gradient-to-r from-[#002f5c] to-[#003d7a] hover:from-[#002447] hover:to-[#003060] text-white font-bold rounded-2xl flex items-center justify-center gap-3 shadow-lg transition-all active:scale-[0.98] cursor-pointer"
+      >
+        <Layers className="w-5 h-5" />
+        <span className="text-sm">Browse All Indoor Maps ({INDOOR_MAPS.length} Buildings)</span>
+      </button>
 
       {/* Manual download options bar */}
       <div className="flex gap-2 mb-6 justify-between items-center">
@@ -99,11 +109,7 @@ export default function SavedMapsView({ onScanClick, onNavigateToBlockA }: Saved
           {mapsList.map(map => (
             <div
               key={map.id}
-              onClick={() => {
-                if (map.id === 'eng-block-a') {
-                  onNavigateToBlockA();
-                }
-              }}
+              onClick={() => onNavigateToBlockA()}
               className="bg-white rounded-2xl border border-zinc-200 overflow-hidden flex flex-col group hover:shadow-md transition-all cursor-pointer"
             >
               {/* Map Blueprint Preview */}
