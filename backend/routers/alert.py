@@ -7,9 +7,9 @@ router = APIRouter(prefix="/alert", tags=["Alert"])
 
 class Alert(BaseModel):
     user: str
-    userId: str | None = None
+    userId: Optional[str] = None
     description: str
-    location: str | None = None
+    location: Optional[str] = None
     timestamp: datetime = datetime.utcnow()
     isCustom: bool = True
     # Add any other fields as needed

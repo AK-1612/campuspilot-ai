@@ -2,17 +2,16 @@ import os
 import json
 from typing import Dict, Any, List, Tuple
 
-from langchain_groq import ChatGroq
-from langchain.agents import create_agent
-from langchain_core.messages import HumanMessage, SystemMessage, AIMessage, ToolMessage
+from dotenv import load_dotenv
+load_dotenv()
 
+from langchain_groq import ChatGroq
+from langchain.agents import create_tool_calling_agent, AgentExecutor
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.messages import HumanMessage, SystemMessage, AIMessage, ToolMessage
 from .tools import route_query, qr_lookup, profile_detect, flag_obstacle, resolve_room
 from .memory import AgentMemory
 from .intent_classifier import classify_intent
-
-# Ensure API Key is available for bootstrap/testing
-if not os.environ.get("GROQ_API_KEY"):
-    os.environ["GROQ_API_KEY"] = "dummy-key-for-bootstrap"
 
 
 def load_system_prompt() -> str:
@@ -27,22 +26,24 @@ def load_system_prompt() -> str:
         return "You are a helpful campus navigation assistant."
 
 
-def create_campus_agent():
+def create_campus_agent() -> AgentExecutor:
     """
-    Initializes the LangChain agent with the Groq LLM
+    Initializes the LangChain tool-calling agent with the Groq LLM
     (llama-3.3-70b-versatile) and the required set of navigation tools.
-    Uses the new langchain 1.x create_agent API (LangGraph-based).
     """
+    llm = ChatGroq(model="llama-3.3-70b-versatile", temperature=0)
     tools = [route_query, qr_lookup, profile_detect, flag_obstacle, resolve_room]
     system_message = load_system_prompt()
 
-    agent = create_agent(
-        model="groq:llama-3.3-70b-versatile",
-        tools=tools,
-        system_prompt=system_message,
-        debug=False
-    )
-    return agent
+    prompt = ChatPromptTemplate.from_messages([
+        ("system", system_message),
+        ("placeholder", "{chat_history}"),
+        ("human", "{input}"),
+        ("placeholder", "{agent_scratchpad}"),
+    ])
+
+    agent = create_tool_calling_agent(llm, tools, prompt)
+    return AgentExecutor(agent=agent, tools=tools, verbose=True, return_intermediate_steps=True)
 
 
 class CampusPilotAgent:
@@ -82,50 +83,23 @@ class CampusPilotAgent:
         )
 
         try:
-            result = self.executor.invoke({
-                "messages": [HumanMessage(content=enriched_input)]
-            })
+            result = self.executor.invoke({"input": enriched_input})
 
-            # Extract tool calls and responses from messages
-            messages = result.get("messages", [])
+            # Extract tool calls from intermediate steps
             intermediate_steps = []
             route_data = None
 
-            # Walk through messages to find tool calls (AIMessage with tool_calls)
-            # and their corresponding ToolMessage responses
-            tool_calls_map = {}
-            for msg in messages:
-                if isinstance(msg, AIMessage) and hasattr(msg, 'tool_calls') and msg.tool_calls:
-                    for tc in msg.tool_calls:
-                        tool_calls_map[tc['id']] = tc
-                elif isinstance(msg, ToolMessage):
-                    tc = tool_calls_map.get(msg.tool_call_id, {})
-                    tool_name = tc.get('name', msg.name or 'unknown')
-                    tool_input = tc.get('args', {})
+            for action, observation in result.get("intermediate_steps", []):
+                intermediate_steps.append((action, observation))
+                if action.tool == "route_query":
+                    try:
+                        parsed = json.loads(observation)
+                        if "route" in parsed:
+                            route_data = parsed["route"]
+                    except Exception:
+                        pass
 
-                    # Create a mock action object for compatibility with the router
-                    action = type('Action', (), {
-                        'tool': tool_name,
-                        'tool_input': tool_input
-                    })()
-                    intermediate_steps.append((action, msg.content))
-
-                    # Extract route data from route_query tool output
-                    if tool_name == "route_query":
-                        try:
-                            parsed = json.loads(msg.content)
-                            if "route" in parsed:
-                                route_data = parsed["route"]
-                        except Exception:
-                            pass
-
-            # Get the final AI response text (last AIMessage without tool_calls)
-            response_text = "I could not generate a response."
-            for msg in reversed(messages):
-                if isinstance(msg, AIMessage) and not (hasattr(msg, 'tool_calls') and msg.tool_calls):
-                    response_text = msg.content
-                    break
-
+            response_text = result.get("output", "I could not generate a response.")
             self.memory.add_interaction("assistant", response_text)
 
             return {

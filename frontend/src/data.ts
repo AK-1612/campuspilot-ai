@@ -85,7 +85,7 @@ export const INITIAL_MAPS: SavedMap[] = [
     floorsCount: 4,
     sizeMb: 6.8,
     imageThumbnail: 'https://lh3.googleusercontent.com/aida-public/AB6AXuB4EJiY_W3Qp7ZYtW5OTfdAa_bxOiSQin07ai5gxTzts3dZ2Y6J3gX-hY1wydyVh5VI00PdBbY6caJ6K8LspPSCVC9n_gIXqgUYmvo4v75jl50dhSePkfBz122LH2JaVN_Qu4k03KBt3TB1Begw6zwb-FnsoacpoB10O2FqnPP6d14fuSY5tAhvoQj_ck9FPVXxiMkjZPwJn7wbOEfbTEWFMD1iBFiJlzLB1w_VX2gIK7prrdAIUN1knq7jdFcPfXvJleeFvdCvY1c',
-    category: 'admin'
+    category: 'other'
   }
 ];
 

@@ -141,6 +141,7 @@ function MapViewController({ center, zoom }: { center: [number, number]; zoom: n
 
 /** Draws the real OSRM route on the map */
 function RoutingMachine({ origin, destination, onRouteFound, onRoutingError }: {
+  key?: any;
   origin: [number, number];
   destination: [number, number];
   onRouteFound: (steps: NavStep[], summary: RouteSummary) => void;
