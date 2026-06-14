@@ -383,6 +383,7 @@ export default function ActiveNavigationView({
                 Active Navigation
               </span>
             </div>
+          </div>
         </div>
 
         {/* Floor Selector */}

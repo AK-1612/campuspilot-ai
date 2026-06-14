@@ -11,6 +11,21 @@ const API_BASE_URL = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
 // Helper to simulate network latency
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
+export async function sendChatMessage(query: string, origin: string, profile: NavigationMode) {
+  if (API_BASE_URL) {
+    const response = await fetch(`${API_BASE_URL}/navigate/chat`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query, origin, profile })
+    });
+    if (response.ok) {
+      return await response.json();
+    }
+    throw new Error('Failed to process chat with AI agent');
+  }
+  throw new Error('API_BASE_URL not set for agent communication');
+}
+
 /**
  * Fetch a route from origin to destination tailored to accessibility profiles.
  * Tries the backend first. Falls back to a rich offline route calculator.

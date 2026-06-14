@@ -6,7 +6,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Send, Mic, Cpu, Sparkles, Navigation, Volume2, AlertTriangle, Compass, Bot, CheckCircle, X } from 'lucide-react';
 import { NavigationMode, RouteOption } from '../types';
-import { getRoute } from '../services/api';
+import { getRoute, sendChatMessage } from '../services/api';
 
 interface Message {
   id: string;
@@ -88,88 +88,55 @@ Where would you like to navigate today? You can ask me in plain language, e.g. "
     setInputVal('');
     setAgentTyping(true);
 
-    // Simulate Agent ReAct loop process
-    await new Promise(resolve => setTimeout(resolve, 800));
-
-    // Agent message structure that shows thinking ReAct logs
-    const agentMsg: Message = {
-      id: `msg-agent-${Date.now()}`,
-      sender: 'agent',
-      text: '', // To be filled/updated
-      timestamp: new Date(),
-      agentSteps: [
-        { stepName: '1. Classify Intent', details: 'Checking query semantic intent. Identified: [NAVIGATE]', status: 'success' },
-        { stepName: '2. Detect Profile Constraints', details: `Active Profile: [${currentProfileMode.toUpperCase()}]. Enforcing constraint rules...`, status: 'info' }
-      ]
-    };
-
-    setMessages(prev => [...prev, agentMsg]);
-
-    // Step 3: Tool Invocation simulation
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    setMessages(prev => {
-      const copy = [...prev];
-      const last = copy[copy.length - 1];
-      if (last.agentSteps) {
-        last.agentSteps.push({
-          stepName: '3. Invoke route_query tool',
-          details: `Querying Neo4j Graph. Origin: [Ground Floor Entrance Lobby], Destination: [Room 204], Profile: [${currentProfileMode}]`,
-          status: 'success'
-        });
-      }
-      return copy;
-    });
-
-    // Step 4: Generate real route using backend API
-    // Extract origin and destination (using placeholder values for now)
-    const origin = 'Ground Floor Entrance Lobby';
-    const destination = 'Room 204';
-    
-    // Call the API to get route options based on profile
-    let fetchedRoutes: RouteOption[] = [];
+    // Call real backend endpoint
     try {
-      fetchedRoutes = await getRoute(origin, destination, currentProfileMode);
-    } catch (err) {
-      console.error('Failed to fetch route from backend:', err);
-      // Fallback to a simple message if API fails
-    }
-    
-    // Build a descriptive message from the first (optimal) option if available
-    let routeMessage = '';
-    if (fetchedRoutes.length > 0) {
-      const opt = fetchedRoutes[0];
-      routeMessage = `### 🗺️ ${opt.name}\n- Estimated time: ${opt.estMinutes} minutes\n- Distance: ${opt.distanceMiles} miles\n- Features: ${opt.features.join(', ')}\n${opt.warnings.length ? '- Warnings: ' + opt.warnings.join(', ') + '\n' : ''}`;
-    } else {
-      // Fallback description similar to previous simulation
-      routeMessage = `### 🗺️ Route Mapped (Simulated)\nI could not retrieve a live route, so using a simulated plan.\n**Origin:** ${origin}\n**Destination:** ${destination}\n`;
-    }
-    
-    // Update chat with the route information and action button
-    setMessages(prev => {
-      const copy = [...prev];
-      const last = copy[copy.length - 1];
-      last.text = `${routeMessage}\n\nClick below to start your real-time visual guide.`;
-      
-      if (last.agentSteps) {
-        last.agentSteps.push({
-          stepName: '4. Generate Response',
-          details: 'Fetched route options from backend and prepared response.',
-          status: 'success'
-        });
-      }
-      
-      last.actionButton = {
-        label: '🚀 Start Guidance Now',
-        onClick: () => {
-          onNavigateToDestination(origin, destination);
-        }
+      const agentMsg: Message = {
+        id: `msg-agent-${Date.now()}`,
+        sender: 'agent',
+        text: 'Analyzing request...',
+        timestamp: new Date(),
+        agentSteps: []
       };
-      return copy;
-    });
-    
-    // Store the fetched routes for later use (e.g., incident reporting)
-    setRouteOptions(fetchedRoutes);
-    
+      
+      setMessages(prev => [...prev, agentMsg]);
+
+      const origin = 'Main Gate'; // Default context
+      const result = await sendChatMessage(trimmed, origin, currentProfileMode);
+
+      setMessages(prev => {
+        const copy = [...prev];
+        const last = copy[copy.length - 1];
+        last.text = result.response;
+        
+        if (result.intermediate_steps && result.intermediate_steps.length > 0) {
+          last.agentSteps = result.intermediate_steps;
+        }
+
+        if (result.route_data) {
+          const nodes = result.route_data.nodes;
+          const destination = nodes && nodes.length > 0 ? nodes[nodes.length - 1].name : 'Destination';
+
+          last.text += `\n\n### 🗺️ Route Mapped\nI found a path. Click below to start your visual guide.`;
+
+          last.actionButton = {
+            label: '🚀 Start Guidance Now',
+            onClick: () => {
+              onNavigateToDestination(origin, destination);
+            }
+          };
+        }
+        return copy;
+      });
+    } catch (err) {
+      console.error(err);
+      setMessages(prev => {
+        const copy = [...prev];
+        const last = copy[copy.length - 1];
+        last.text = 'Sorry, I encountered an error communicating with the navigation server.';
+        return copy;
+      });
+    }
+
     setAgentTyping(false);
   };
 
