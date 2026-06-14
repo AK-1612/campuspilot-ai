@@ -5,11 +5,8 @@
 
 import { NavigationMode, RouteOption, HazardIssue } from '../types';
 
-// Read API URL from environment variables if present
+// Base URL for the backend API.
 const API_BASE_URL = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
-
-// Helper to simulate network latency
-const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 // ─── Agent Query Types ──────────────────────────────────────────────────────
 
@@ -47,12 +44,11 @@ export async function queryAgent(
       });
       if (res.ok) return await res.json();
     } catch (err) {
-      console.warn('Agent query failed, using fallback', err);
+      // Backend unavailable, fallback to offline calculation
     }
   }
 
-  // Offline fallback — simulate with existing getRoute logic
-  await sleep(1200);
+  // Offline fallback — calculate route locally
   const routes = await getRoute(origin, destination, profile);
   return {
     response: routes[0]?.features?.[0] || 'Route calculated offline.',
@@ -87,19 +83,17 @@ export async function getRoute(
         return data;
       }
     } catch (err) {
-      console.warn('Backend route query failed, falling back to local simulation & cache...', err);
+      // Backend unavailable, fallback to cache or offline calculation
     }
   }
 
-  // Load from offline cache if available
+  // Serve from offline cache if available.
   const cached = localStorage.getItem(cacheKey);
   if (cached) {
-    await sleep(400); // Fast cache lookup delay
     return JSON.parse(cached);
   }
 
-  // Latency simulator to make the application feel realistic
-  await sleep(Math.floor(Math.random() * 500) + 600);
+  // Offline route calculation — profile-aware fallback when backend is unreachable.
 
   // Generate simulated route options based on profile constraints
   const minutes = Math.floor(Math.random() * 6) + 4;
@@ -193,13 +187,11 @@ export async function lookupQR(code: string): Promise<any> {
         return data;
       }
     } catch (err) {
-      console.warn('Backend QR lookup failed, falling back to local list...', err);
+      // Backend unavailable, fallback to local
     }
   }
 
-  await sleep(750); // Scanner network delay simulator
-
-  // Fetch local list
+  // Fetch local checkpoint list
   try {
     const response = await fetch('/qr_map.json');
     if (response.ok) {
@@ -211,7 +203,7 @@ export async function lookupQR(code: string): Promise<any> {
       }
     }
   } catch (err) {
-    console.error('Failed to load local qr_map.json', err);
+    // Local file not available
   }
 
   throw new Error('QR Checkpoint code not recognized or invalid.');
@@ -241,15 +233,13 @@ export async function reportIncident(
         return await response.json();
       }
     } catch (err) {
-      console.warn('Backend report failed, saving locally...', err);
+      // Backend unavailable, persist locally
     }
   }
 
-  await sleep(1000); // Network transmission simulation
-
-  // Save in local custom issues storage to display on maps
+  // Persist locally so the report survives a page reload.
   const existing = localStorage.getItem('custom_issues');
-  const issues = existing ? JSON.parse(existing) : [];
+  const issues: HazardIssue[] = existing ? JSON.parse(existing) : [];
   issues.push(mockResult);
   localStorage.setItem('custom_issues', JSON.stringify(issues));
 
@@ -280,7 +270,7 @@ export function isBuildingMapUnlocked(buildingName: string): boolean {
  */
 export function getUnlockedBuildings(): string[] {
   const cached = localStorage.getItem('unlocked_buildings');
-  return cached ? JSON.parse(cached) : ['Engineering Block A']; // Default unlocked for demo
+  return cached ? JSON.parse(cached) : ['Engineering Block A'];
 }
 
 /**
@@ -291,10 +281,8 @@ export async function uploadToCloudinary(fileOrDataUrl: File | string): Promise<
   const cloudName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME;
   const uploadPreset = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET;
 
-  // Fallback if not configured
   if (!cloudName || !uploadPreset || cloudName === 'your_cloud_name' || uploadPreset === 'your_unsigned_preset') {
-    console.warn('Cloudinary not configured or has default placeholder values. Using local fallback.');
-    await sleep(600); // Simulate network roundtrip
+    // Cloudinary not configured — return a local object URL as fallback.
     return typeof fileOrDataUrl === 'string' ? fileOrDataUrl : URL.createObjectURL(fileOrDataUrl);
   }
 

@@ -21,7 +21,8 @@ import {
   Volume2,
   BookOpen,
   DownloadCloud,
-  Bot
+  Bot,
+  CheckCircle2
 } from 'lucide-react';
 
 import { NavigationMode } from './types';
@@ -43,7 +44,7 @@ import QRScanner from './components/QRScanner';
 import NavigationChat from './components/NavigationChat';
 import { BuildingDef, getBuilding, INDOOR_MAPS, BUILDINGS } from './indoorMaps';
 
-// ─── POI helpers (used by Quick Destinations fetcher) ────────────────────────
+// ─── POI icon identifier helper (icons should be rendered via SVG/Lucide components) ────────────
 
 function getPoiIcon(tags: Record<string, string>): string {
   const a = tags.amenity || '';
@@ -51,38 +52,39 @@ function getPoiIcon(tags: Record<string, string>): string {
   const l = tags.leisure || '';
   const t = tags.tourism || '';
   const p = tags.place || '';
-  // Localities / areas
-  if (p === 'suburb' || p === 'neighbourhood' || p === 'quarter') return '🏘️';
-  if (p === 'district' || p === 'city_district' || p === 'borough') return '🏙️';
-  if (p === 'town' || p === 'city') return '🌆';
-  if (p === 'village' || p === 'hamlet') return '🇨';
+  
+  // Return icon identifiers for use with icon rendering system
+  if (p === 'suburb' || p === 'neighbourhood' || p === 'quarter') return 'suburbs';
+  if (p === 'district' || p === 'city_district' || p === 'borough') return 'cityscape';
+  if (p === 'town' || p === 'city') return 'city';
+  if (p === 'village' || p === 'hamlet') return 'village';
   // Amenities
-  if (a === 'restaurant' || a === 'fast_food' || a === 'food_court') return '🍽️';
-  if (a === 'cafe') return '☕';
-  if (a === 'bar' || a === 'pub') return '🍺';
-  if (a === 'hospital' || a === 'clinic') return '🏥';
-  if (a === 'pharmacy') return '💊';
-  if (a === 'bank' || a === 'atm') return '🏦';
-  if (a === 'fuel') return '⛽';
-  if (a === 'school') return '🏫';
-  if (a === 'university' || a === 'college') return '🎓';
-  if (a === 'library') return '📚';
-  if (a === 'cinema' || a === 'theatre') return '🎬';
-  if (a === 'police') return '🚔';
-  if (a === 'place_of_worship') return '🕌';
-  if (a === 'marketplace') return '🏪';
-  if (a === 'supermarket') return '🛒';
-  if (s === 'mall' || s === 'department_store') return '🏬';
-  if (s === 'supermarket' || s === 'convenience') return '🛒';
-  if (s === 'clothes') return '👗';
-  if (s === 'electronics') return '📱';
-  if (l === 'park') return '🌳';
-  if (l === 'sports_centre' || l === 'stadium') return '⚽';
-  if (l === 'swimming_pool') return '🏊';
-  if (t === 'hotel' || t === 'hostel') return '🏨';
-  if (t === 'museum') return '🏛️';
-  if (t === 'attraction') return '⭐';
-  return '📍';
+  if (a === 'restaurant' || a === 'fast_food' || a === 'food_court') return 'restaurant';
+  if (a === 'cafe') return 'cafe';
+  if (a === 'bar' || a === 'pub') return 'bar';
+  if (a === 'hospital' || a === 'clinic') return 'hospital';
+  if (a === 'pharmacy') return 'pharmacy';
+  if (a === 'bank' || a === 'atm') return 'bank';
+  if (a === 'fuel') return 'fuel';
+  if (a === 'school') return 'school';
+  if (a === 'university' || a === 'college') return 'university';
+  if (a === 'library') return 'library';
+  if (a === 'cinema' || a === 'theatre') return 'theatre';
+  if (a === 'police') return 'police';
+  if (a === 'place_of_worship') return 'worship';
+  if (a === 'marketplace') return 'marketplace';
+  if (a === 'supermarket') return 'supermarket';
+  if (s === 'mall' || s === 'department_store') return 'mall';
+  if (s === 'supermarket' || s === 'convenience') return 'supermarket';
+  if (s === 'clothes') return 'clothing';
+  if (s === 'electronics') return 'electronics';
+  if (l === 'park') return 'park';
+  if (l === 'sports_centre' || l === 'stadium') return 'sports';
+  if (l === 'swimming_pool') return 'pool';
+  if (t === 'hotel' || t === 'hostel') return 'hotel';
+  if (t === 'museum') return 'museum';
+  if (t === 'attraction') return 'attraction';
+  return 'location';
 }
 
 function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
@@ -114,7 +116,7 @@ export default function App() {
   // Search & dynamic route states
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedHotspot, setSelectedHotspot] = useState<string | null>(null);
-  const [activeNavigationBlockA, setActiveNavigationBlockA] = useState(false);
+  const [isActiveNavigation, setIsActiveNavigation] = useState(false);
   const [isIndoorNav, setIsIndoorNav] = useState(true);
   const [activeRouteConfig, setActiveRouteConfig] = useState<{ origin: string; destination: string } | null>(null);
 
@@ -128,7 +130,6 @@ export default function App() {
     if (spot && spot.lat && spot.lng) {
       return [spot.lat, spot.lng];
     }
-    // Default to main gate if not found for testing purposes
     return undefined;
   };
 
@@ -171,8 +172,7 @@ export default function App() {
   const [isFetchingNearby, setIsFetchingNearby] = useState(false);
   const nearbyFetchedRef = useRef(false);
 
-  // Fetch nearby POIs + localities on mount — does NOT depend on CampusMap callback.
-  // Requests GPS directly so it works even before the map fires onUserLocationChange.
+  // Fetch nearby POIs on mount from Overpass API
   useEffect(() => {
     if (nearbyFetchedRef.current) return;
     nearbyFetchedRef.current = true;
@@ -255,9 +255,9 @@ export default function App() {
         { enableHighAccuracy: false, timeout: 8000, maximumAge: 60000 }
       );
     } else {
-      doFetch(19.1334, 72.9133);
+      doFetch(19.1334, 72.9133); // Fallback coordinates
     }
-  }, []); // runs once on mount — independent of map state
+  }, []);
 
 
   // Triggering SOS Action
@@ -277,20 +277,8 @@ export default function App() {
     setActiveTab('routes');
   };
 
-  // Trigger scanning checklist success
-  const simulateQrScanSuccess = () => {
-    setIsQrScanning(true);
-    setTimeout(() => {
-      setIsQrScanning(false);
-      setScanSuccessCard(true);
-    }, 2000);
-  };
-
-  const handleStartSimulatedBlockAFromScan = () => {
-    setScanSuccessCard(false);
-    setIsIndoorNav(true);
-    setSelectedBuildingId('building-1-tech');
-    setActiveNavigationBlockA(true);
+  const handleStartNavigation = () => {
+    setIsActiveNavigation(true);
   };
 
   // Handle reporting directly from navigation corridors
@@ -338,7 +326,7 @@ export default function App() {
           onSelectMap={(buildingId) => {
             setSelectedBuildingId(buildingId);
             setIsIndoorNav(true);
-            setActiveNavigationBlockA(true);
+            setIsActiveNavigation(true);
             setShowIndoorMapSelector(false);
           }}
         />
@@ -359,11 +347,11 @@ export default function App() {
           <button
             onClick={() => {
               setActiveTab('home');
-              setActiveNavigationBlockA(false);
+              setIsActiveNavigation(false);
               setActiveRouteConfig(null);
             }}
             className={`w-full py-3 px-4 rounded-xl font-sans font-bold text-sm flex items-center gap-sm transition-all text-left ${
-              activeTab === 'home' && !activeNavigationBlockA && !activeRouteConfig
+              activeTab === 'home' && !isActiveNavigation && !activeRouteConfig
                 ? 'bg-[#60f8cb] text-stone-950 shadow-md'
                 : 'text-zinc-400 hover:text-white hover:bg-zinc-800'
             }`}
@@ -375,7 +363,7 @@ export default function App() {
           <button
             onClick={() => {
               setActiveTab('routes');
-              setActiveNavigationBlockA(false);
+              setIsActiveNavigation(false);
               if (!activeRouteConfig) {
                 setActiveRouteConfig({ origin: 'Library', destination: 'Science Hall' });
               }
@@ -393,7 +381,7 @@ export default function App() {
           <button
             onClick={() => {
               setActiveTab('scan');
-              setActiveNavigationBlockA(false);
+              setIsActiveNavigation(false);
               setActiveRouteConfig(null);
             }}
             className={`w-full py-3 px-4 rounded-xl font-sans font-bold text-sm flex items-center gap-sm transition-all text-left ${
@@ -409,7 +397,7 @@ export default function App() {
           <button
             onClick={() => {
               setActiveTab('saved');
-              setActiveNavigationBlockA(false);
+              setIsActiveNavigation(false);
               setActiveRouteConfig(null);
             }}
             className={`w-full py-3 px-4 rounded-xl font-sans font-bold text-sm flex items-center gap-sm transition-all text-left ${
@@ -426,7 +414,7 @@ export default function App() {
             onClick={() => {
               setActiveTab('access');
               setActiveSubTab('view');
-              setActiveNavigationBlockA(false);
+              setIsActiveNavigation(false);
               setActiveRouteConfig(null);
             }}
             className={`w-full py-3 px-4 rounded-xl font-sans font-bold text-sm flex items-center gap-sm transition-all text-left ${
@@ -443,7 +431,6 @@ export default function App() {
         {/* Desktop Active Preferences State Summary */}
         <div className="bg-zinc-850 p-4 rounded-2xl border border-zinc-800/80 mb-6 flex flex-col gap-sm">
           <div className="flex items-center gap-xs">
-            <span className="text-sm">♿</span>
             <span className="text-xs font-extrabold tracking-wider uppercase text-[#60f8cb]">
               {activeProfile.name} Mode Active
             </span>
@@ -484,17 +471,17 @@ export default function App() {
             </span>
           </div>
           <span className="text-xs font-semibold text-zinc-400 tracking-wider">
-            {accessibilityMode === 'wheelchair' ? '♿ Wheelchair' : activeProfile.name}
+            {activeProfile.name}
           </span>
         </header>
 
         {/* View Switcher content */}
         <div className="flex-grow">
-          {activeNavigationBlockA ? (
-            /* ACTIVE 1: SVG blueprint dynamic floor walk navigation */
+          {isActiveNavigation ? (
+            /* ACTIVE: SVG blueprint dynamic floor walk navigation */
             <ActiveNavigationView
               onBack={() => {
-                setActiveNavigationBlockA(false);
+                setIsActiveNavigation(false);
                 if (activeRouteConfig?.destination === 'Dropped Pin') {
                   setActiveRouteConfig(null);
                   setActiveTab('home');
@@ -503,7 +490,7 @@ export default function App() {
                 }
               }}
               onStopNav={() => {
-                setActiveNavigationBlockA(false);
+                setIsActiveNavigation(false);
                 if (activeRouteConfig?.destination === 'Dropped Pin') {
                   setActiveRouteConfig(null);
                   setActiveTab('home');
@@ -531,9 +518,9 @@ export default function App() {
                 } else {
                   setIsIndoorNav(true);
                 }
-                setActiveNavigationBlockA(true);
+                setIsActiveNavigation(true);
               }}
-              orgName={activeRouteConfig.origin}
+              originName={activeRouteConfig.origin}
               destName={activeRouteConfig.destination}
               currentProfileMode={accessibilityMode}
               themeMode="light"
@@ -775,9 +762,9 @@ export default function App() {
                   }}
                   onStartRoute={(id) => {
                     setIsIndoorNav(true);
-                    setActiveNavigationBlockA(true);
+                    setIsActiveNavigation(true);
                   }}
-                  orgName="Library"
+                  originName="Library"
                   destName="Science Hall"
                   currentProfileMode={accessibilityMode}
                   themeMode="light"
@@ -805,7 +792,7 @@ export default function App() {
 
                         <div className="flex flex-col items-center text-center">
                           <div className="w-14 h-14 bg-emerald-50 text-emerald-600 rounded-full flex items-center justify-center mb-4">
-                            <span className="text-2xl">🏁</span>
+                            <CheckCircle2 className="w-7 h-7" />
                           </div>
                           <h2 className="text-lg font-extrabold text-zinc-900 mb-1">
                             Location Identified
@@ -819,7 +806,12 @@ export default function App() {
                           </div>
 
                           <button
-                            onClick={handleStartSimulatedBlockAFromScan}
+                            onClick={() => {
+                              setScanSuccessCard(false);
+                              setIsIndoorNav(true);
+                              setSelectedBuildingId('building-1-tech');
+                              setIsActiveNavigation(true);
+                            }}
                             className="w-full bg-[#10b981] hover:bg-[#059669] text-white font-bold h-12 rounded-xl flex items-center justify-center gap-2 shadow-md transition-colors cursor-pointer"
                           >
                             <Navigation className="w-4 h-4 rotate-45" />
@@ -861,7 +853,7 @@ export default function App() {
                           : 'text-zinc-500 hover:text-zinc-700'
                       }`}
                     >
-                      ♿ Navigation Modes
+                      Navigation Modes
                     </button>
                     <button
                       onClick={() => setActiveSubTab('report')}
@@ -871,7 +863,7 @@ export default function App() {
                           : 'text-zinc-500 hover:text-zinc-700'
                       }`}
                     >
-                      🚧 Report Incidents
+                      Report Incidents
                     </button>
                   </div>
 
@@ -899,7 +891,7 @@ export default function App() {
         </div>
 
                   {/* Global Floating Access Emergency SOS Red Trigger Button on Bottom bar of Map Home screen */}
-        {activeTab === 'home' && !activeNavigationBlockA && !activeRouteConfig && (
+        {activeTab === 'home' && !isActiveNavigation && !activeRouteConfig && (
           <button
             onClick={triggerSos}
             aria-label="Emergency SOS"
@@ -910,17 +902,17 @@ export default function App() {
         )}
 
         {/* Bottom Navigation Bar for Mobile devices (Hidden on Desktop Web view) */}
-        {!activeNavigationBlockA && (
+        {!isActiveNavigation && (
           <nav className="flex lg:hidden bg-[#f0f0f8] border-t border-zinc-200 fixed bottom-0 left-0 w-full z-[45] h-[76px] justify-around items-center px-2 shadow-lg select-none">
             {/* Home */}
             <button
               onClick={() => {
                 setActiveTab('home');
-                setActiveNavigationBlockA(false);
+                setIsActiveNavigation(false);
                 setActiveRouteConfig(null);
               }}
               className={`transition-all duration-200 flex flex-col items-center justify-center h-[56px] w-[72px] rounded-2xl ${
-                activeTab === 'home' && !activeNavigationBlockA && !activeRouteConfig
+                activeTab === 'home' && !isActiveNavigation && !activeRouteConfig
                   ? 'bg-[#60f8cb] text-zinc-900 font-bold shadow-sm'
                   : 'text-zinc-500 hover:text-zinc-800'
               }`}
@@ -933,7 +925,7 @@ export default function App() {
             <button
               onClick={() => {
                 setActiveTab('routes');
-                setActiveNavigationBlockA(false);
+                setIsActiveNavigation(false);
                 setActiveRouteConfig(null);
               }}
               className={`transition-all duration-200 flex flex-col items-center justify-center h-[56px] w-[72px] rounded-2xl ${
@@ -950,7 +942,7 @@ export default function App() {
             <button
               onClick={() => {
                 setActiveTab('scan');
-                setActiveNavigationBlockA(false);
+                setIsActiveNavigation(false);
                 setActiveRouteConfig(null);
               }}
               className={`transition-all duration-200 flex flex-col items-center justify-center h-[56px] w-[72px] rounded-2xl ${
@@ -967,7 +959,7 @@ export default function App() {
             <button
               onClick={() => {
                 setActiveTab('saved');
-                setActiveNavigationBlockA(false);
+                setIsActiveNavigation(false);
                 setActiveRouteConfig(null);
               }}
               className={`transition-all duration-200 flex flex-col items-center justify-center h-[56px] w-[72px] rounded-2xl ${
@@ -985,7 +977,7 @@ export default function App() {
               onClick={() => {
                 setActiveTab('access');
                 setActiveSubTab('view');
-                setActiveNavigationBlockA(false);
+                setIsActiveNavigation(false);
                 setActiveRouteConfig(null);
               }}
               className={`transition-all duration-200 flex flex-col items-center justify-center h-[56px] w-[72px] rounded-2xl ${
@@ -1009,7 +1001,7 @@ export default function App() {
               setIsChatOpen(false);
               setActiveRouteConfig({ origin, destination: dest });
               setIsIndoorNav(true);
-              setActiveNavigationBlockA(true);
+              setIsActiveNavigation(true);
             }}
             onClose={() => setIsChatOpen(false)}
           />

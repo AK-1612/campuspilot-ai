@@ -23,7 +23,7 @@ def test_qr_lookup_success():
 def test_qr_lookup_not_found():
     response = client.get("/qr/lookup?code=INVALID_QR_CODE")
     assert response.status_code == 404
-    assert "not recognized" in response.json()["detail"]
+    assert "not recognised" in response.json()["detail"]
 
 def test_navigate_default_success():
     response = client.post("/navigate/", json={

@@ -83,7 +83,7 @@ def test_flag_obstacle():
             "description": "Broken"
         }
     )
-    assert "Obstacle flagged" in result
+    assert "Obstacle recorded" in result
 
 
 def test_flag_obstacle_message():

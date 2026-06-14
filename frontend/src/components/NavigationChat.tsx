@@ -43,33 +43,20 @@ export default function NavigationChat({
     {
       id: 'msg-init-1',
       sender: 'agent',
-      text: `Hello! I am your CampusPilot AI Navigator. I am aware that you are currently using the **${currentProfileMode === 'wheelchair' ? '♿ Wheelchair' : currentProfileMode}** routing profile.\n\nYour current location: **${currentLocation}**\n\nWhere would you like to navigate today? You can ask me in plain language, e.g. "Take me to Room 204" or "Is there a step-free path to the Science Lab?"`,
+      text: `CampusPilot AI Navigator ready.\n\nActive profile: ${currentProfileMode}\nCurrent location: ${currentLocation}\n\nWhere would you like to navigate? For example: "Take me to Room 204" or "Is there a step-free path to the Science Lab?"`,
       timestamp: new Date()
     }
   ]);
   
-  const [inputVal, setInputVal] = useState('');
+  const [inputValue, setInputValue] = useState('');
   const [isVoiceListening, setIsVoiceListening] = useState(false);
-  const [agentTyping, setAgentTyping] = useState(false);
+  const [isAgentTyping, setIsAgentTyping] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
   // Auto scroll to bottom
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages, agentTyping]);
-
-  // Handle voice simulation
-  const triggerVoiceSimulation = () => {
-    setIsVoiceListening(true);
-    setTimeout(() => {
-      setInputVal("Take me to the Library");
-    }, 1500);
-
-    setTimeout(() => {
-      setIsVoiceListening(false);
-      handleSendText("Take me to the Library");
-    }, 2800);
-  };
+  }, [messages, isAgentTyping]);
 
   const handleSendText = async (text: string) => {
     const trimmed = text.trim();
@@ -84,8 +71,8 @@ export default function NavigationChat({
     };
     
     setMessages(prev => [...prev, userMsg]);
-    setInputVal('');
-    setAgentTyping(true);
+    setInputValue('');
+    setIsAgentTyping(true);
 
     try {
       // Call the real backend agent
@@ -112,15 +99,13 @@ export default function NavigationChat({
         });
       }
 
-      // Handle emergency intent with distinct styling
       let responseText = result.response;
       if (result.intent === 'emergency') {
-        responseText = '🚨 ' + result.response;
-        // Replace steps with emergency override info
+        // Emergency responses are pre-LLM — flag them distinctly
         agentSteps.length = 0;
         agentSteps.push({
           stepName: 'Emergency Override',
-          details: 'Pre-LLM heuristic triggered. Agent bypassed. Response < 1ms.',
+          details: 'Pre-LLM heuristic triggered. Agent bypassed. Response time < 1ms.',
           status: 'info' as const
         });
       }
@@ -132,7 +117,7 @@ export default function NavigationChat({
         timestamp: new Date(),
         agentSteps,
         actionButton: result.route_data ? {
-          label: '🚀 Start Guidance Now',
+          label: 'Start Guidance',
           onClick: () => onNavigateToDestination(currentLocation, trimmed)
         } : undefined
       };
@@ -143,11 +128,11 @@ export default function NavigationChat({
       setMessages(prev => [...prev, {
         id: `msg-err-${Date.now()}`,
         sender: 'agent',
-        text: 'Sorry, I could not reach the navigation server. Please check your connection.',
+        text: 'Unable to reach the navigation service. Please check your connection and try again.',
         timestamp: new Date()
       }]);
     } finally {
-      setAgentTyping(false);
+      setIsAgentTyping(false);
     }
   };
 
@@ -159,7 +144,7 @@ export default function NavigationChat({
           <Bot className="w-5 h-5 text-teal-400 animate-pulse" />
           <div className="text-left">
             <h2 className="text-sm font-extrabold text-white tracking-wide leading-none">CampusPilot AI Navigator</h2>
-            <span className="text-[10px] text-teal-400 font-mono tracking-widest uppercase mt-1 block">Agentic ReAct Mode • LIVE</span>
+            <span className="text-[10px] text-teal-400 font-mono tracking-widest uppercase mt-1 block">Agentic ReAct — Live</span>
           </div>
         </div>
         {onClose && (
@@ -227,8 +212,7 @@ export default function NavigationChat({
                     className="w-full bg-[#60f8cb] text-zinc-950 hover:bg-[#4edab0] font-bold h-11 rounded-xl flex items-center justify-center gap-2 shadow-lg transition-transform duration-100 active:scale-[0.98] cursor-pointer"
                   >
                     <Navigation className="w-4 h-4 rotate-45" />
-                    {msg.actionButton.label}
-                  </button>
+                    {msg.actionButton.label}                  </button>
                 </div>
               )}
             </div>
@@ -236,7 +220,7 @@ export default function NavigationChat({
         ))}
 
         {/* Typing placeholder animation */}
-        {agentTyping && (
+        {isAgentTyping && (
           <div className="flex flex-col items-start mr-auto max-w-[80%]">
             <span className="text-[10px] text-zinc-500 font-mono mb-1">CAMPUSPILOT_AGENT</span>
             <div className="bg-zinc-900 border border-zinc-850 p-4 rounded-2xl rounded-tl-none flex items-center gap-2">
@@ -255,39 +239,24 @@ export default function NavigationChat({
         <form
           onSubmit={(e) => {
             e.preventDefault();
-            handleSendText(inputVal);
+            handleSendText(inputValue);
           }}
           className="relative flex items-center w-full max-w-xl mx-auto"
         >
-          {/* Microphone button */}
-          <button
-            type="button"
-            onClick={triggerVoiceSimulation}
-            className={`mr-2 h-12 w-12 rounded-xl flex items-center justify-center shrink-0 border transition-all cursor-pointer ${
-              isVoiceListening
-                ? 'bg-red-900 border-red-500 text-white animate-pulse'
-                : 'bg-zinc-950 border-zinc-800 text-teal-400 hover:bg-zinc-850'
-            }`}
-            title="Simulate Voice Command"
-          >
-            <Mic className={`w-5 h-5 ${isVoiceListening ? 'animate-bounce' : ''}`} />
-          </button>
-
           {/* Text Input */}
           <div className="relative flex-1">
             <input
               type="text"
-              placeholder={isVoiceListening ? "Dictating..." : "Ask CampusPilot agent..."}
-              value={inputVal}
-              onChange={(e) => setInputVal(e.target.value)}
-              disabled={isVoiceListening}
+              placeholder="Ask CampusPilot Navigator..."
+              value={inputValue}
+              onChange={(e) => setInputValue(e.target.value)}
               className="block w-full bg-zinc-950 border border-zinc-800 text-white rounded-xl py-3.5 pl-4 pr-12 text-sm font-semibold focus:outline-none focus:border-teal-500 shadow-inner"
             />
             
             {/* Send button */}
             <button
               type="submit"
-              disabled={!inputVal.trim()}
+              disabled={!inputValue.trim()}
               className="absolute inset-y-0 right-2 pr-3 flex items-center text-teal-400 hover:text-teal-300 disabled:text-zinc-650 cursor-pointer"
             >
               <Send className="w-4 h-4" />
@@ -295,25 +264,6 @@ export default function NavigationChat({
           </div>
         </form>
       </footer>
-
-      {/* Voice Dictation Simulation Popover overlay */}
-      {isVoiceListening && (
-        <div className="absolute inset-0 bg-black/90 backdrop-blur-sm z-50 flex flex-col items-center justify-center gap-6">
-          <div className="relative flex items-center justify-center w-36 h-36">
-            <div className="absolute inset-0 rounded-full bg-red-600 opacity-20 animate-ping" />
-            <div className="absolute inset-4 rounded-full bg-red-800 opacity-40 animate-pulse" />
-            <div className="relative w-20 h-20 bg-red-650 rounded-full flex items-center justify-center shadow-lg border border-red-500/50">
-              <Mic className="w-8 h-8 text-white animate-pulse" />
-            </div>
-          </div>
-          <div className="text-center space-y-1">
-            <h3 className="text-lg font-bold text-white uppercase tracking-wider">Voice Dictation</h3>
-            <p className="text-xs text-zinc-400 font-semibold max-w-xs px-6">
-              "Take me to the Library..."
-            </p>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

@@ -10,6 +10,7 @@ import { getBuilding, renderBuildingSVG, GRID_LINES, GRID_COLS } from '../indoor
 import CampusMap from './CampusMap';
 import BottomSheet from './BottomSheet';
 import { generateDynamicRoute } from '../utils/routing';
+import { NavStep } from '../types';
 
 interface ActiveNavigationViewProps {
   onBack: () => void;
@@ -40,7 +41,7 @@ export default function ActiveNavigationView({
   const [showObstacleSuccess, setShowObstacleSuccess] = useState(false);
 
   // State for dynamic outdoor routing
-  const [outdoorSteps, setOutdoorSteps] = useState<any[]>([]);
+  const [outdoorSteps, setOutdoorSteps] = useState<NavStep[]>([]);
   const [currentOutdoorStepIdx, setCurrentOutdoorStepIdx] = useState<number>(0);
   const [routeSummary, setRouteSummary] = useState<{ distanceMeters: number; durationSeconds: number } | null>(null);
 
@@ -159,7 +160,7 @@ export default function ActiveNavigationView({
     ];
   };
 
-  const handleRouteCalculated = (steps: any[], summary: { distanceMeters: number; durationSeconds: number }) => {
+  const handleRouteCalculated = (steps: NavStep[], summary: { distanceMeters: number; durationSeconds: number }) => {
     if (steps && steps.length > 0) {
       setOutdoorSteps(steps);
       setRouteSummary(summary);

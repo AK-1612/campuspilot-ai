@@ -111,11 +111,10 @@ export default function ReportIssueView({
         }
       }, 100);
     } catch (err: any) {
-      console.error("Camera access failed, falling back to manual upload:", err);
-      let errorFriendly = err.message || 'Camera blocked or unsupported';
+      let errorMessage = err.message || 'Camera access blocked or unsupported';
       if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
-        errorFriendly = 'Camera permission was blocked. Please tap the lock/info icon in the URL bar and select "Site Settings" to allow Camera access.';
-        setUploadError(errorFriendly);
+        errorMessage = 'Camera permission was blocked. Please tap the lock/info icon in the URL bar and select "Site Settings" to allow Camera access.';
+        setUploadError(errorMessage);
       } else {
         fileInputRef.current?.click();
       }
@@ -216,8 +215,7 @@ export default function ReportIssueView({
         }
       }, 2500);
     } catch (err: any) {
-      console.error('Cloudinary upload failed', err);
-      setUploadError(err.message || 'Failed to upload photo. Please check your config.');
+      setUploadError(err.message || 'Failed to upload photo. Please check your configuration.');
     } finally {
       setIsUploading(false);
     }

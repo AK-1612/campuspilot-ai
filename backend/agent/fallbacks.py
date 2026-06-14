@@ -1,35 +1,69 @@
+"""
+Fallback response generators for the CampusPilot agent.
+
+These functions provide safe, pre-approved responses for situations where
+the routing engine cannot produce a result or where the LLM must be bypassed
+entirely (e.g., emergency detection).
+"""
+
+
+def handle_emergency() -> str:
+    """
+    Returns the standard emergency response.
+
+    This response is returned immediately when an emergency intent is detected
+    by the pre-LLM heuristic classifier. It does not depend on LLM inference.
+    """
+    return (
+        "Emergency detected. Campus Security has been alerted. "
+        "Please stay calm and proceed to the nearest marked exit. "
+        "If you require immediate assistance, call campus security at extension 100."
+    )
+
+
 def handle_ambiguous_query(query: str) -> str:
     """
-    Provides a standardized response when the agent cannot determine the user's intent.
-    
+    Returns a clarification request when the agent cannot determine intent.
+
     Args:
-        query (str): The ambiguous user query.
-        
+        query: The ambiguous user query.
+
     Returns:
-        str: A polite request for clarification.
+        A plain-language request for more specific information.
     """
-    return "I'm not quite sure where you want to go. Could you please specify a building, room, or facility name?"
+    return (
+        "I was unable to determine a destination from your request. "
+        "Please specify a building name, room number, or facility type."
+    )
 
 
 def handle_no_route_found(start: str, end: str) -> str:
     """
-    Provides a safe response when the routing engine fails to find a valid path.
-    
+    Returns a safe response when no accessible route exists between two nodes.
+
     Args:
-        start (str): The starting node ID or name.
-        end (str): The destination node ID or name.
-        
+        start: Starting node ID or label.
+        end: Destination node ID or label.
+
     Returns:
-        str: A fallback message with safety instructions.
+        A fallback message with guidance for the user.
     """
-    return f"I couldn't find a safe route from {start} to {end} at this time. Please contact campus security if you are stuck."
+    return (
+        f"No accessible route could be found from {start} to {end} at this time. "
+        "This may be due to a temporary closure or missing accessibility data. "
+        "Please contact campus facilities or speak to a member of staff."
+    )
 
 
 def handle_offline_mode() -> str:
     """
-    Returns the standard warning when the mobile app loses network connectivity.
-    
+    Returns the standard notification for offline or degraded-connectivity operation.
+
     Returns:
-        str: The offline mode notification.
+        An informational message about reduced functionality.
     """
-    return "You are currently offline. Basic cached routing from your last QR scan is available, but real-time updates require an internet connection."
+    return (
+        "The navigation service is currently operating offline. "
+        "Cached routes from your last QR scan are available, "
+        "but real-time updates require network connectivity."
+    )

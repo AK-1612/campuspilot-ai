@@ -25,15 +25,6 @@ export default function QRScanner({ onScanSuccess, onCancel }: QRScannerProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const localStreamRef = useRef<MediaStream | null>(null);
 
-  // List of mock codes for quick simulation
-  const mockCheckpoints = [
-    { label: 'Engineering Block A - Ground Floor', code: 'QR-ENG-G01' },
-    { label: 'Engineering Block A - Second Floor Lobby', code: 'QR-ENG-F02' },
-    { label: 'Main Library Entrance', code: 'QR-LIB-ENT' },
-    { label: 'Science Hall - Lab 304 Corridor', code: 'QR-SCI-304' },
-    { label: 'Admin Block Courtyard Patio', code: 'QR-ADM-CTR' }
-  ];
-
   const startCamera = async () => {
     try {
       setCameraError(null);
@@ -61,12 +52,11 @@ export default function QRScanner({ onScanSuccess, onCancel }: QRScannerProps) {
         }
       }, 100);
     } catch (err: any) {
-      console.warn('Camera access denied or unavailable. Fallback to simulator.', err);
-      let errorFriendly = err.message || 'Camera blocked or unsupported by hardware';
+      let errorMessage = err.message || 'Camera access is blocked or unsupported';
       if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
-        errorFriendly = 'Camera permission was blocked. Please tap the lock icon in the URL bar, reset permissions, or tap "Site Settings" to allow Camera access.';
+        errorMessage = 'Camera permission is blocked. Please check your browser permissions and try again.';
       }
-      setCameraError(errorFriendly);
+      setCameraError(errorMessage);
       setCameraActive(false);
     }
   };
@@ -117,18 +107,12 @@ export default function QRScanner({ onScanSuccess, onCancel }: QRScannerProps) {
           />
         ) : (
           <div className="relative w-full h-full bg-zinc-900/90 flex flex-col items-center justify-center p-6">
-            {/* Ambient visual container with static image representing the corridor */}
-            <img
-              alt="Simulation Background"
-              src="https://lh3.googleusercontent.com/aida-public/AB6AXuA81Orzb2q97WFGECQ_mnE4LFjDMDqT3yEXVoFKlwPI1hkc_cNzoD57YoYkmF_09wZEEVAEId0-Bs4pVehxDH6i3HlXelrTZryVZ08PLy2fuaKliOu-yFWNTFJ5AZE7ivwgVggFs9NJNyFVeW6MHrmLiJPda9_1gIgwnvVKQyWbI7moi3MlmIwxZPGY-zYzYqHkJEeMXzQmZGKE6sawAEJk4XfQJnyUPeHqYTi4GIUN3yGWyPYn7IW12Fw5sqIj5j7Z9nuw3wDz-t0"
-              className="absolute inset-0 w-full h-full object-cover opacity-30 pointer-events-none"
-            />
-            
+            {/* Camera unavailable fallback view */}
             <div className="relative z-10 text-center max-w-xs space-y-3 p-4 rounded-2xl bg-zinc-950/80 border border-zinc-850 backdrop-blur-md">
               <CameraOff className="w-10 h-10 text-zinc-500 mx-auto animate-pulse" />
-              <h3 className="text-sm font-bold text-zinc-300">Camera Feed Simulated</h3>
+              <h3 className="text-sm font-bold text-zinc-300">Camera Unavailable</h3>
               <p className="text-[11px] text-zinc-500 font-semibold leading-normal">
-                {cameraError ? `${cameraError}.` : 'Camera permission requested.'} Using fallback scanning dashboard.
+                {cameraError ? `${cameraError}.` : 'Camera permission is required.'} Please enable camera access to continue.
               </p>
               
               <button
@@ -233,26 +217,24 @@ export default function QRScanner({ onScanSuccess, onCancel }: QRScannerProps) {
             <div className="space-y-4">
               <div className="space-y-2">
                 <label className="text-[10px] font-black uppercase text-zinc-400 tracking-widest block text-left">
-                  Simulate QR Checkout Scan
+                  Checkpoint Verification
                 </label>
                 <div className="grid grid-cols-1 gap-2">
-                  <select
-                    onChange={(e) => {
-                      if (e.target.value) {
-                        handleVerifyCode(e.target.value);
-                      }
-                    }}
-                    defaultValue=""
+                  <input
+                    type="text"
+                    placeholder="Enter checkpoint code"
+                    value={manualCode}
+                    onChange={(e) => setManualCode(e.target.value.toUpperCase())}
                     disabled={loading}
-                    className="w-full bg-zinc-950 border border-zinc-800 text-zinc-300 font-sans px-4 py-3 rounded-xl text-xs font-bold outline-none focus:border-teal-500"
+                    className="w-full bg-zinc-950 border border-zinc-800 text-zinc-300 font-sans font-mono px-4 py-3 rounded-xl text-xs font-bold outline-none focus:border-teal-500"
+                  />
+                  <button
+                    onClick={() => handleVerifyCode(manualCode)}
+                    disabled={loading || !manualCode.trim()}
+                    className="w-full bg-teal-600 hover:bg-teal-700 disabled:opacity-50 text-white font-bold py-3 rounded-xl text-xs uppercase tracking-wider transition-colors cursor-pointer"
                   >
-                    <option value="" disabled>Select checkpoint to simulate scan...</option>
-                    {mockCheckpoints.map((cp, idx) => (
-                      <option key={idx} value={cp.code}>
-                        📍 [{cp.code}] {cp.label}
-                      </option>
-                    ))}
-                  </select>
+                    {loading ? 'Verifying...' : 'Verify Checkpoint'}
+                  </button>
                 </div>
               </div>
 

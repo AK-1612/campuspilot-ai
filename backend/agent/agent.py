@@ -111,7 +111,7 @@ class CampusPilotAgent:
 
         except Exception as e:
             return {
-                "response": f"Sorry, I encountered an error: {str(e)}",
+                "response": f"An error occurred while processing your request: {str(e)}",
                 "route_data": None,
                 "intent": intent,
                 "intermediate_steps_raw": []

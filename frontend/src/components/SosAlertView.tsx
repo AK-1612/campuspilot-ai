@@ -15,40 +15,16 @@ export default function SosAlertView({
   onCancel,
   lastKnownLocation = 'Engineering Block A — Ground Floor Entrance'
 }: SosAlertViewProps) {
-  // Telemetry state simulation
-  const [peersCount, setPeersCount] = useState(3);
-  const [signalStrength, setSignalStrength] = useState(-78);
-  const [latencyMs, setLatencyMs] = useState(42);
   const [statusMessage, setStatusMessage] = useState('');
 
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setPeersCount(prev => {
-        const change = Math.random() > 0.5 ? 1 : -1;
-        const result = prev + change;
-        return result >= 1 && result <= 6 ? result : prev;
-      });
-
-      setSignalStrength(() => {
-        return -(Math.floor(Math.random() * 10) + 72); // -72 to -82 dBm
-      });
-
-      setLatencyMs(() => {
-        return Math.floor(Math.random() * 15) + 35; // 35 to 50ms
-      });
-    }, 4000);
-
-    return () => clearInterval(timer);
-  }, []);
-
   const handleSendSms = () => {
-    setStatusMessage('Transmitting GPS coordinates to emergency dispatch over cellular proxy...');
-    setTimeout(() => setStatusMessage('✓ Emergency SMS dispatched successfully to Campus Security (Alert Ref: #9023)'), 1500);
+    setStatusMessage('Initiating emergency alert transmission to Campus Security...');
+    setTimeout(() => setStatusMessage('Emergency alert submitted. Campus Security has been notified.'), 1500);
   };
 
   const handleBroadcastMesh = () => {
-    setStatusMessage('Publishing localized mesh beacon. Relaying through other peer devices...');
-    setTimeout(() => setStatusMessage(`✓ Shared active beacon with ${peersCount} adjoining campus devices`), 1500);
+    setStatusMessage('Initiating emergency beacon broadcast to connected devices...');
+    setTimeout(() => setStatusMessage('Emergency beacon has been broadcast to connected campus devices.'), 1500);
   };
 
   return (
@@ -137,22 +113,8 @@ export default function SosAlertView({
         </div>
       </main>
 
-      {/* Live telemetry log */}
+      {/* Footer actions */}
       <footer className="w-full px-6 pt-6 flex flex-col items-center gap-6 z-10 relative max-w-md mx-auto">
-        <div className="w-full bg-[#140505] rounded-xl p-4 border border-red-950/40 text-left">
-          <div className="flex items-center gap-2 text-red-500 mb-1.5">
-            <span className="w-2.5 h-2.5 rounded-full bg-red-500 animate-ping" />
-            <span className="text-[10px] font-black uppercase tracking-widest font-mono text-red-400">
-              Mesh Network Active
-            </span>
-          </div>
-          <p className="text-xs text-zinc-400 font-mono leading-relaxed">
-            Peers connected: <span className="text-white font-bold">{peersCount}</span> | Signal:{' '}
-            <span className="text-white font-bold">{signalStrength}dBm</span> | Latency:{' '}
-            <span className="text-white font-bold">{latencyMs}ms</span>
-          </p>
-        </div>
-
         <button
           onClick={onCancel}
           className="font-sans font-bold text-sm text-zinc-400 hover:text-white underline underline-offset-4 p-2 transition-colors uppercase tracking-widest cursor-pointer"

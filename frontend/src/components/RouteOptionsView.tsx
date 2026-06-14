@@ -11,7 +11,7 @@ import { getRoute } from '../services/api';
 interface RouteOptionsViewProps {
   onBack: () => void;
   onStartRoute: (routeId: string) => void;
-  orgName?: string;
+  originName?: string;
   destName?: string;
   currentProfileMode?: NavigationMode;
   themeMode?: 'light' | 'dark';
@@ -20,7 +20,7 @@ interface RouteOptionsViewProps {
 export default function RouteOptionsView({
   onBack,
   onStartRoute,
-  orgName = 'Library',
+  originName = 'Library',
   destName = 'Science Hall',
   currentProfileMode = 'standard',
   themeMode = 'light'
@@ -37,35 +37,35 @@ export default function RouteOptionsView({
 
   useEffect(() => {
     setLoading(true);
-    getRoute(orgName, destName, currentProfileMode)
+    getRoute(originName, destName, currentProfileMode)
       .then(data => {
         setRoutes(data);
         if (data.length > 0) {
           setSelectedRouteId(data[0].id);
         }
       })
-      .catch(err => {
-        console.error('Failed to fetch routes:', err);
+      .catch(() => {
+        // Route fetch failed, display fallback routes
       })
       .finally(() => setLoading(false));
-  }, [orgName, destName, currentProfileMode]);
+  }, [originName, destName, currentProfileMode]);
 
   const handleAssistantQuery = (query: string) => {
     switch (query) {
       case 'coffee':
-        setAssistantMessage('☕ Coffee option found: "The Hub Cafe" is located inside Engineering Block A Lobby, directly along your route! It has fully ramped counters.');
+        setAssistantMessage('The Hub Cafe is located inside Engineering Block A Lobby, directly along your route. The counter is fully ramped.');
         break;
       case 'toilet':
-        setAssistantMessage('♿ Restroom locate: There is a fully gender-neutral ADA accessible restroom on Ground Floor of Engineering Block A, adjacent to Lift 2.');
+        setAssistantMessage('An accessible, gender-neutral restroom is located on the Ground Floor of Engineering Block A, adjacent to Lift 2.');
         break;
       case 'stairs':
-        setAssistantMessage('⚠️ Path update: Wheelchair Safe Route has been re-calculated to bypass Stairs and prioritize Lift 2 corridor entrance.');
+        setAssistantMessage('The Wheelchair Safe Route has been updated to bypass stairs and prioritise the Lift 2 corridor entrance.');
         break;
       case 'lift':
-        setAssistantMessage('🛗 Lift status: Lift 2 is fully operational. Lift 1 is undergoing maintenance.');
+        setAssistantMessage('Lift 2 is operational. Lift 1 is currently undergoing scheduled maintenance.');
         break;
       case 'obstacle':
-        setAssistantMessage('🚧 Obstacle reported: Facility staff has been notified of a minor spill in Corridor B.');
+        setAssistantMessage('Obstacle report submitted. Facility staff have been notified of the reported hazard in Corridor B.');
         break;
       default:
         setAssistantMessage('');
@@ -104,7 +104,7 @@ export default function RouteOptionsView({
               <ArrowLeft className="w-5 h-5 text-zinc-850" />
             </button>
             <h1 className="text-lg font-bold text-zinc-900 truncate max-w-[280px]">
-              {orgName} to {destName}
+              {originName} to {destName}
             </h1>
           </div>
         </header>
@@ -137,7 +137,7 @@ export default function RouteOptionsView({
       </h2>
       {!loading && routes.length > 0 && (
         <p className="text-[10px] font-mono text-zinc-400 mb-4">
-          {routes.length} route(s) fetched • Source: {routes[0]?.features?.includes('Extracted from Graph') ? '🟢 Backend Agent' : '🔵 Offline'}
+          {routes.length} route{routes.length !== 1 ? 's' : ''} available
         </p>
       )}
 
@@ -169,7 +169,7 @@ export default function RouteOptionsView({
               <div className="flex gap-3">
                 {/* Left wheelchair icon circle */}
                 <div className="w-10 h-10 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center shrink-0">
-                  <span className="text-lg">♿</span>
+                  <CheckCircle2 className="w-5 h-5" />
                 </div>
                 <div>
                   <h3 className="font-extrabold text-zinc-900 text-sm">
@@ -217,7 +217,7 @@ export default function RouteOptionsView({
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
-                    setAssistantMessage('🗺️ Map preview loaded. Elevator access is highlighted on the floor plan.');
+                    setAssistantMessage('Map preview loaded. Elevator access is highlighted on the floor plan.');
                   }}
                   className="bg-transparent border border-[#006d51] text-[#006d51] hover:bg-teal-50 font-bold text-xs py-3 px-4 rounded-xl flex items-center justify-center gap-2 transition-all active:scale-[0.98] cursor-pointer"
                 >
@@ -306,7 +306,9 @@ export default function RouteOptionsView({
                 onClick={() => handleAssistantQuery('toilet')}
                 className="bg-white hover:bg-zinc-50 border border-zinc-200 text-zinc-700 font-semibold text-xs py-3 px-4 rounded-full flex items-center justify-start gap-2 shadow-sm transition-colors cursor-pointer"
               >
-                <span className="text-teal-500 shrink-0 text-sm">♿</span>
+                <span className="text-teal-500 shrink-0 text-sm">
+                <CheckCircle2 className="w-4 h-4" />
+              </span>
                 Find accessible toilet
               </button>
             </div>

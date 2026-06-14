@@ -1,38 +1,54 @@
+"""
+Pre-LLM intent classifier for the CampusPilot agent.
+
+Performs keyword-based classification in sub-millisecond time before the
+LangChain executor is invoked. Emergency intents are detected here so that
+safety responses are never delayed by LLM inference latency.
+"""
+
+_EMERGENCY_KEYWORDS = frozenset([
+    "help", "emergency", "fire", "police", "hurt", "sos", "fell", "stuck",
+    "ambulance", "collapse", "attack",
+])
+
+_ACCESSIBILITY_KEYWORDS = frozenset([
+    "wheelchair", "blind", "deaf", "ramp", "elevator", "lift", "accessible",
+    "step-free", "visual impair", "hearing impair",
+])
+
+_FACILITY_KEYWORDS = frozenset([
+    "where is", "find", "looking for", "locate", "nearest", "closest",
+])
+
+_NAVIGATE_KEYWORDS = frozenset([
+    "take me", "go to", "route", "navigate", "directions", "how do i get",
+    "path to", "way to",
+])
+
+
 def classify_intent(query: str) -> str:
     """
-    Classifies the user query into one of four core system intents.
-    
-    This lightweight heuristic classification acts as a pre-processing step
-    before the LLM agent formulates a plan, ensuring rapid categorization
-    of emergency or specialized queries.
-    
+    Classify a user query into one of four system intents.
+
+    Evaluation order: emergency > accessibility_query > find_facility > navigate.
+    Emergency takes strict precedence to ensure safety responses are never
+    delayed by lower-priority classification branches.
+
     Args:
-        query (str): The raw text input from the user.
-        
+        query: Raw text input from the user.
+
     Returns:
-        str: One of the following intents:
-            - 'emergency': Imminent threat or help required.
-            - 'accessibility_query': General questions about building accessibility.
-            - 'find_facility': Locating static amenities (e.g., restrooms).
-            - 'navigate': Moving from point A to point B (default).
+        One of: 'emergency', 'accessibility_query', 'find_facility', 'navigate'.
     """
-    query = query.lower()
-    
-    # Emergency keywords take strict precedence
-    if any(word in query for word in ["help", "emergency", "fire", "police", "hurt", "sos"]):
+    normalised = query.lower()
+
+    if any(kw in normalised for kw in _EMERGENCY_KEYWORDS):
         return "emergency"
-    
-    # Accessibility and feature queries
-    if any(word in query for word in ["wheelchair", "blind", "deaf", "ramp", "elevator", "accessible"]):
+
+    if any(kw in normalised for kw in _ACCESSIBILITY_KEYWORDS):
         return "accessibility_query"
-        
-    # Finding amenities without a specific destination in mind
-    if any(word in query for word in ["where is", "find", "looking for"]):
+
+    if any(kw in normalised for kw in _FACILITY_KEYWORDS):
         return "find_facility"
-        
-    # Routing and directions
-    if any(word in query for word in ["take me", "go to", "route", "navigate", "directions"]):
-        return "navigate"
-        
-    # Default fallback intent for general wayfinding
+
     return "navigate"

@@ -1,104 +1,165 @@
+"""
+LangChain tool definitions for the CampusPilot agent.
+
+Each tool is registered via the @tool decorator and exposed to the
+LangChain AgentExecutor. The LLM autonomously decides which tools to
+call and in what order during each ReAct reasoning cycle.
+"""
+
 import json
 from langchain_core.tools import tool
 from backend.db_client import db_client, MOCK_NODES
 
+
 @tool
 def route_query(start_node: str, end_node: str, profile: str) -> str:
     """
-    Calculates the best route from start_node to end_node tailored for the given disability profile.
-    
+    Calculate the shortest accessible route between two campus nodes.
+
     Args:
-        start_node (str): The EXACT node ID of the starting location (e.g., 'qr-a-0').
-        end_node (str): The EXACT node ID of the destination (e.g., 'room-a-21'). CRITICAL: Do NOT pass human-readable names like 'Library'. You MUST use `resolve_room` first to get the ID.
-        profile (str): The user's disability profile (e.g., wheelchair, vision_impaired).
-        
+        start_node: Exact node ID of the origin (e.g., 'qr-a-0'). Must be
+            resolved via qr_lookup before calling this tool.
+        end_node: Exact node ID of the destination (e.g., 'room-a-21'). Must be
+            resolved via resolve_room before calling this tool.
+        profile: Active disability profile (e.g., 'wheelchair', 'vision_impaired').
+            Determines which graph edges are eligible.
+
     Returns:
-        str: A JSON string containing the structured route path and edges, or an error if no route is found.
+        JSON string with 'status' and 'route' on success, or 'error' on failure.
     """
     path_data = db_client.find_shortest_path(start_node, end_node, profile)
     if not path_data:
-        return json.dumps({"error": f"No accessible route found matching '{profile}' profile."})
-    
-    return json.dumps({
-        "status": "success",
-        "route": path_data
-    })
+        return json.dumps({
+            "error": f"No accessible route found for profile '{profile}' between '{start_node}' and '{end_node}'."
+        })
+    return json.dumps({"status": "success", "route": path_data})
 
 
 @tool
 def qr_lookup(qr_id: str) -> str:
     """
-    Looks up the physical location data associated with a scanned QR code ID.
-    
+    Resolve a scanned QR code to its campus node data.
+
     Args:
-        qr_id (str): The ID scanned from the physical QR code (e.g., 'QR_BUILDING_A_G').
-        
+        qr_id: The code value embedded in the physical QR marker
+               (e.g., 'QR_BUILDING_A_G').
+
     Returns:
-        str: A JSON string of the physical location node data containing the node ID.
+        JSON string with node metadata (id, name, building, floor), or 'error'.
     """
     for node in MOCK_NODES.values():
         if node.get("type") == "QRPoint" and node.get("code") == qr_id:
             return json.dumps(node)
 
-    query_qr = "MATCH (q:QRPoint {code: $code}) RETURN q.id as id, q.name as name, q.building as building, q.floor as floor"
+    cypher = (
+        "MATCH (q:QRPoint {code: $code}) "
+        "RETURN q.id AS id, q.name AS name, q.building AS building, q.floor AS floor"
+    )
     try:
         with db_client.get_session() as session:
-            res = session.run(query_qr, code=qr_id)
-            rec = res.single()
-            if rec:
-                return json.dumps({"id": rec["id"], "name": rec["name"], "type": "QRPoint", "building": rec["building"], "floor": rec["floor"]})
+            result = session.run(cypher, code=qr_id)
+            record = result.single()
+            if record:
+                return json.dumps({
+                    "id": record["id"],
+                    "name": record["name"],
+                    "type": "QRPoint",
+                    "building": record["building"],
+                    "floor": record["floor"],
+                })
     except Exception:
         pass
-        
+
     return json.dumps({"error": f"QR code '{qr_id}' not found."})
 
 
 @tool
 def resolve_room(room_name: str) -> str:
     """
-    Looks up a room ID by its name or a fuzzy description. Use this to get the destination ID before calling route_query.
-    
+    Look up a room node ID by name or partial description.
+
+    Call this tool before route_query to convert a human-readable destination
+    such as 'library' or 'Room 204' into a graph node ID.
+
     Args:
-        room_name (str): The name or part of the name of the room (e.g., 'library', 'AI Lab', '101').
-        
+        room_name: Full or partial name of the room (e.g., 'library', 'AI Lab').
+
     Returns:
-        str: A JSON string of the matching room node data, containing the node ID.
+        JSON string with node metadata (id, name, building, floor), or 'error'.
     """
     name_lower = room_name.lower()
     for node in MOCK_NODES.values():
         if node.get("type") == "Room" and name_lower in str(node.get("name", "")).lower():
             return json.dumps(node)
-            
-    query_room = "MATCH (r:Room) WHERE toLower(r.name) CONTAINS $name RETURN r.id as id, r.name as name, r.building as building, r.floor as floor LIMIT 1"
+
+    cypher = (
+        "MATCH (r:Room) WHERE toLower(r.name) CONTAINS $name "
+        "RETURN r.id AS id, r.name AS name, r.building AS building, r.floor AS floor "
+        "LIMIT 1"
+    )
     try:
         with db_client.get_session() as session:
-            res = session.run(query_room, name=name_lower)
-            rec = res.single()
-            if rec:
-                return json.dumps({"id": rec["id"], "name": rec["name"], "type": "Room", "building": rec["building"], "floor": rec["floor"]})
+            result = session.run(cypher, name=name_lower)
+            record = result.single()
+            if record:
+                return json.dumps({
+                    "id": record["id"],
+                    "name": record["name"],
+                    "type": "Room",
+                    "building": record["building"],
+                    "floor": record["floor"],
+                })
     except Exception:
         pass
-        
-    return json.dumps({"error": f"Room matching '{room_name}' not found."})
+
+    return json.dumps({"error": f"No room matching '{room_name}' found."})
 
 
 @tool
 def profile_detect(user_input: str) -> str:
     """
-    Analyzes user input to detect if they are implicitly requesting a specific disability profile.
+    Infer a disability profile from implicit cues in the user's message.
+
+    Used when the user has not explicitly selected a profile but their
+    language suggests a specific accessibility need.
+
+    Args:
+        user_input: The raw message text from the user.
+
+    Returns:
+        A profile name string: 'Wheelchair', 'Vision-impaired',
+        'Hearing-impaired', 'Cognitive', or 'Invisible' (default).
     """
+    text = user_input.lower()
+    if any(kw in text for kw in ("wheelchair", "ramp", "elevator", "step-free")):
+        return "Wheelchair"
+    if any(kw in text for kw in ("blind", "vision", "visually impaired", "tactile", "audio")):
+        return "Vision-impaired"
+    if any(kw in text for kw in ("deaf", "hearing", "caption", "visual alert")):
+        return "Hearing-impaired"
+    if any(kw in text for kw in ("cognitive", "simple", "slow", "one step")):
+        return "Cognitive"
     return "Invisible"
 
 
 @tool
 def flag_obstacle(node_id: str, description: str) -> str:
     """
-    Reports a temporary obstacle to update the shadow map.
-    
+    Report a temporary obstacle and mark the affected node on the shadow map.
+
+    The shadow map layer blocks flagged nodes from appearing in future route
+    calculations until the obstacle is cleared.
+
     Args:
-        node_id (str): The EXACT node ID that is blocked (e.g., 'lift-a', 'corr-a-0'). You MUST pass a valid node ID, not a human readable name.
-        description (str): Details of the obstacle.
+        node_id: Exact graph node ID of the blocked location
+                 (e.g., 'lift-a', 'corr-a-0').
+        description: Plain-language description of the obstacle.
+
+    Returns:
+        Confirmation string.
     """
     db_client.flag_shadow_node(node_id)
-    return f"Obstacle flagged at node {node_id}: {description}. It is now blocked on the shadow map."
-
+    return (
+        f"Obstacle recorded at node '{node_id}': {description}. "
+        "The node has been flagged on the shadow map and will be excluded from routing."
+    )

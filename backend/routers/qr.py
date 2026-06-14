@@ -1,9 +1,19 @@
+"""
+QR router — GET /qr/lookup
+
+Resolves a scanned QR code to its campus node metadata.
+"""
+
+import logging
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
 from typing import Optional
+
 from backend.db_client import db_client, MOCK_NODES
 
+logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/qr", tags=["QR Codes"])
+
 
 class QRLocationResponse(BaseModel):
     id: str
@@ -13,19 +23,26 @@ class QRLocationResponse(BaseModel):
     floor: int
     description: Optional[str] = None
 
+
 @router.get("/lookup", response_model=QRLocationResponse)
-def lookup_qr(code: str = Query(..., description="The content of the scanned QR code")):
+def lookup_qr(
+    code: str = Query(..., description="QR code value scanned from the physical marker.")
+) -> QRLocationResponse:
     """
-    Look up building, floor, and location metadata associated with a physical QR code scanner payload.
+    Resolve a QR code to its associated campus location node.
+
+    Attempts resolution against Neo4j first, then falls back to the
+    in-memory mock graph if the database is unavailable.
     """
-    # 1. Try resolving using Neo4j session query
-    query = """
+    cypher = """
     MATCH (q:QRPoint {code: $code})
-    RETURN q.id as id, q.code as code, q.name as name, q.building as building, q.floor as floor, q.description as description
+    RETURN q.id AS id, q.code AS code, q.name AS name,
+           q.building AS building, q.floor AS floor,
+           q.description AS description
     """
     try:
         with db_client.get_session() as session:
-            result = session.run(query, code=code)
+            result = session.run(cypher, code=code)
             record = result.single()
             if record:
                 return QRLocationResponse(
@@ -34,13 +51,11 @@ def lookup_qr(code: str = Query(..., description="The content of the scanned QR 
                     name=record["name"],
                     building=record["building"],
                     floor=record["floor"],
-                    description=record["description"]
+                    description=record["description"],
                 )
-    except Exception:
-        # Fallback to mock search in in-memory nodes
-        pass
+    except Exception as exc:
+        logger.warning("Neo4j QR lookup failed, using mock fallback: %s", exc)
 
-    # Mock fallback
     for node in MOCK_NODES.values():
         if node.get("type") == "QRPoint" and node.get("code") == code:
             return QRLocationResponse(
@@ -49,7 +64,10 @@ def lookup_qr(code: str = Query(..., description="The content of the scanned QR 
                 name=node["name"],
                 building=node["building"],
                 floor=node["floor"],
-                description=node.get("description")
+                description=node.get("description"),
             )
 
-    raise HTTPException(status_code=404, detail=f"QR code '{code}' not recognized on campus.")
+    raise HTTPException(
+        status_code=404,
+        detail=f"QR code '{code}' was not recognised. Verify the code and try again.",
+    )
