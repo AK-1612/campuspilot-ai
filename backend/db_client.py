@@ -12,6 +12,8 @@ except ImportError:
 
 # Mock graph fallback data representation
 # Nodes: Room, Entrance, QRPoint, Corridor, Lift, Stairs
+SHADOW_MAP_BLOCKED_NODES = set()
+
 MOCK_NODES = {
     # Building A
     "ent-a-0": {"id": "ent-a-0", "building": "Building A", "name": "Main Entrance A", "type": "Entrance", "floor": 0},
@@ -188,6 +190,10 @@ class Neo4jClient:
         if self.driver:
             self.driver.close()
 
+    def flag_shadow_node(self, node_id: str):
+        SHADOW_MAP_BLOCKED_NODES.add(node_id)
+        logger.info(f"Shadow Map updated: {node_id} is now blocked.")
+
     def find_shortest_path(self, start_id: str, end_id: str, profile: str = "default"):
         # Map profile constraints to boolean flags
         wheelchair_req = profile.lower() in ["wheelchair", "mobility_impaired"]
@@ -257,7 +263,7 @@ class Neo4jClient:
             
             neighbors = ADJACENCY_LIST.get(node, [])
             for neighbor, dist, wa, tp, stairs, lift in neighbors:
-                if neighbor in visited:
+                if neighbor in visited or neighbor in SHADOW_MAP_BLOCKED_NODES:
                     continue
                 # Filter by constraints
                 if wheelchair_req and not wa:

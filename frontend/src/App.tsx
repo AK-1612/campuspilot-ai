@@ -1003,11 +1003,13 @@ export default function App() {
         <div className="fixed inset-0 z-50 bg-zinc-950 flex flex-col">
           <NavigationChat
             currentProfileMode={accessibilityMode}
-            onNavigateToDestination={(origin, destination) => {
-              setActiveRouteConfig({ origin, destination });
+            currentLocation={scanSuccessData?.name || 'Campus Entrance'}
+            lastQrLocation={scanSuccessData?.id || undefined}
+            onNavigateToDestination={(origin, dest) => {
+              setIsChatOpen(false);
+              setActiveRouteConfig({ origin, destination: dest });
               setIsIndoorNav(true);
               setActiveNavigationBlockA(true);
-              setIsChatOpen(false);
             }}
             onClose={() => setIsChatOpen(false)}
           />

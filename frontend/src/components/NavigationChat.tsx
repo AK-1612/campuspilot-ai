@@ -6,7 +6,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Send, Mic, Cpu, Sparkles, Navigation, Volume2, AlertTriangle, Compass, Bot, CheckCircle, X } from 'lucide-react';
 import { NavigationMode, RouteOption } from '../types';
-import { getRoute, sendChatMessage } from '../services/api';
+import { queryAgent } from '../services/api';
 
 interface Message {
   id: string;
@@ -26,12 +26,16 @@ interface Message {
 
 interface NavigationChatProps {
   currentProfileMode: NavigationMode;
+  currentLocation: string;
+  lastQrLocation?: string;
   onNavigateToDestination: (origin: string, destination: string) => void;
   onClose?: () => void;
 }
 
 export default function NavigationChat({
   currentProfileMode,
+  currentLocation,
+  lastQrLocation,
   onNavigateToDestination,
   onClose
 }: NavigationChatProps) {
@@ -39,9 +43,7 @@ export default function NavigationChat({
     {
       id: 'msg-init-1',
       sender: 'agent',
-      text: `Hello! I am your CampusPilot AI Navigator. I am aware that you are currently using the **${currentProfileMode === 'wheelchair' ? '♿ Wheelchair' : currentProfileMode}** routing profile. 
-
-Where would you like to navigate today? You can ask me in plain language, e.g. "Take me to Room 204" or "Is there a step-free path to the Science Lab?"`,
+      text: `Hello! I am your CampusPilot AI Navigator. I am aware that you are currently using the **${currentProfileMode === 'wheelchair' ? '♿ Wheelchair' : currentProfileMode}** routing profile.\n\nYour current location: **${currentLocation}**\n\nWhere would you like to navigate today? You can ask me in plain language, e.g. "Take me to Room 204" or "Is there a step-free path to the Science Lab?"`,
       timestamp: new Date()
     }
   ]);
@@ -49,7 +51,6 @@ Where would you like to navigate today? You can ask me in plain language, e.g. "
   const [inputVal, setInputVal] = useState('');
   const [isVoiceListening, setIsVoiceListening] = useState(false);
   const [agentTyping, setAgentTyping] = useState(false);
-  const [routeOptions, setRouteOptions] = useState<RouteOption[] | null>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
   // Auto scroll to bottom
@@ -61,14 +62,12 @@ Where would you like to navigate today? You can ask me in plain language, e.g. "
   const triggerVoiceSimulation = () => {
     setIsVoiceListening(true);
     setTimeout(() => {
-      // Simulate speech detection filling the query
-      setInputVal("Take me to Room 204, avoiding all stairs");
+      setInputVal("Take me to the Library");
     }, 1500);
 
     setTimeout(() => {
       setIsVoiceListening(false);
-      // Automatically send
-      handleSendText("Take me to Room 204, avoiding all stairs");
+      handleSendText("Take me to the Library");
     }, 2800);
   };
 
@@ -88,56 +87,68 @@ Where would you like to navigate today? You can ask me in plain language, e.g. "
     setInputVal('');
     setAgentTyping(true);
 
-    // Call real backend endpoint
     try {
+      // Call the real backend agent
+      const result = await queryAgent(
+        currentLocation,
+        trimmed,
+        currentProfileMode,
+        lastQrLocation
+      );
+
+      // Map real agent steps to display format
+      const agentSteps: Message['agentSteps'] = result.agent_steps.map((step, i) => ({
+        stepName: `${i + 1}. Tool: ${step.tool}`,
+        details: `Input: ${step.input}\nOutput: ${step.output}`,
+        status: 'success' as const
+      }));
+
+      // Add intent step at the front if available
+      if (result.intent) {
+        agentSteps.unshift({
+          stepName: '0. Intent Classified',
+          details: `Intent: [${result.intent.toUpperCase()}] | Profile: [${result.profile_applied?.toUpperCase() || currentProfileMode.toUpperCase()}]`,
+          status: 'info' as const
+        });
+      }
+
+      // Handle emergency intent with distinct styling
+      let responseText = result.response;
+      if (result.intent === 'emergency') {
+        responseText = '🚨 ' + result.response;
+        // Replace steps with emergency override info
+        agentSteps.length = 0;
+        agentSteps.push({
+          stepName: 'Emergency Override',
+          details: 'Pre-LLM heuristic triggered. Agent bypassed. Response < 1ms.',
+          status: 'info' as const
+        });
+      }
+
       const agentMsg: Message = {
         id: `msg-agent-${Date.now()}`,
         sender: 'agent',
-        text: 'Analyzing request...',
+        text: responseText,
         timestamp: new Date(),
-        agentSteps: []
+        agentSteps,
+        actionButton: result.route_data ? {
+          label: '🚀 Start Guidance Now',
+          onClick: () => onNavigateToDestination(currentLocation, trimmed)
+        } : undefined
       };
-      
+
       setMessages(prev => [...prev, agentMsg]);
 
-      const origin = 'Main Gate'; // Default context
-      const result = await sendChatMessage(trimmed, origin, currentProfileMode);
-
-      setMessages(prev => {
-        const copy = [...prev];
-        const last = copy[copy.length - 1];
-        last.text = result.response;
-        
-        if (result.intermediate_steps && result.intermediate_steps.length > 0) {
-          last.agentSteps = result.intermediate_steps;
-        }
-
-        if (result.route_data) {
-          const nodes = result.route_data.nodes;
-          const destination = nodes && nodes.length > 0 ? nodes[nodes.length - 1].name : 'Destination';
-
-          last.text += `\n\n### 🗺️ Route Mapped\nI found a path. Click below to start your visual guide.`;
-
-          last.actionButton = {
-            label: '🚀 Start Guidance Now',
-            onClick: () => {
-              onNavigateToDestination(origin, destination);
-            }
-          };
-        }
-        return copy;
-      });
     } catch (err) {
-      console.error(err);
-      setMessages(prev => {
-        const copy = [...prev];
-        const last = copy[copy.length - 1];
-        last.text = 'Sorry, I encountered an error communicating with the navigation server.';
-        return copy;
-      });
+      setMessages(prev => [...prev, {
+        id: `msg-err-${Date.now()}`,
+        sender: 'agent',
+        text: 'Sorry, I could not reach the navigation server. Please check your connection.',
+        timestamp: new Date()
+      }]);
+    } finally {
+      setAgentTyping(false);
     }
-
-    setAgentTyping(false);
   };
 
   return (
@@ -148,7 +159,7 @@ Where would you like to navigate today? You can ask me in plain language, e.g. "
           <Bot className="w-5 h-5 text-teal-400 animate-pulse" />
           <div className="text-left">
             <h2 className="text-sm font-extrabold text-white tracking-wide leading-none">CampusPilot AI Navigator</h2>
-            <span className="text-[10px] text-teal-400 font-mono tracking-widest uppercase mt-1 block">Agentic ReAct Mode</span>
+            <span className="text-[10px] text-teal-400 font-mono tracking-widest uppercase mt-1 block">Agentic ReAct Mode • LIVE</span>
           </div>
         </div>
         {onClose && (
@@ -189,7 +200,24 @@ Where would you like to navigate today? You can ask me in plain language, e.g. "
                 {msg.text}
               </div>
 
-              {/* Telemetry logs removed per user request */}
+              {/* Agent step trace — shows real tool calls from LangChain */}
+              {msg.agentSteps && msg.agentSteps.length > 0 && (
+                <div className="mt-3 space-y-1.5 border-t border-zinc-800 pt-3">
+                  <span className="text-[9px] font-mono text-zinc-600 tracking-widest uppercase block mb-1">Agent Trace</span>
+                  {msg.agentSteps.map((step, i) => (
+                    <div key={i} className="flex items-start gap-2 text-[11px]">
+                      <span className={`mt-0.5 w-2 h-2 rounded-full shrink-0 ${
+                        step.status === 'success' ? 'bg-teal-400' :
+                        step.status === 'info' ? 'bg-blue-400' : 'bg-zinc-500'
+                      }`} />
+                      <div>
+                        <span className="font-bold text-zinc-300">{step.stepName}</span>
+                        <span className="text-zinc-500 ml-1 break-all">{step.details}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
 
               {/* Action Button inside message */}
               {msg.actionButton && (
@@ -281,7 +309,7 @@ Where would you like to navigate today? You can ask me in plain language, e.g. "
           <div className="text-center space-y-1">
             <h3 className="text-lg font-bold text-white uppercase tracking-wider">Voice Dictation</h3>
             <p className="text-xs text-zinc-400 font-semibold max-w-xs px-6">
-              "Take me to Room 204, avoiding all stairs..."
+              "Take me to the Library..."
             </p>
           </div>
         </div>

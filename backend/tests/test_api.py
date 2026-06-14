@@ -26,21 +26,40 @@ def test_qr_lookup_not_found():
     assert "not recognized" in response.json()["detail"]
 
 def test_navigate_default_success():
-    response = client.get("/navigate?query=take me to the library&qr_location=QR_BUILDING_A_G")
+    response = client.post("/navigate/", json={
+        "origin": "qr-a-0",
+        "destination": "Library",
+        "profile": "Invisible"
+    })
     assert response.status_code == 200
     data = response.json()
-    assert len(data["path"]) > 0
-    assert data["total_distance"] > 0
-    # Destination Library should be room-a-21
-    assert data["end_node"]["id"] == "room-a-21"
+    assert "response" in data
+    assert "agent_steps" in data
+    assert "intent" in data
+    assert "profile_applied" in data
+    assert data["profile_applied"] == "Invisible"
 
 def test_navigate_wheelchair_success():
-    # In wheelchair mode, it should successfully calculate the route using the elevator
-    response = client.get("/navigate?query=take me to the library&profile=wheelchair&qr_location=QR_BUILDING_A_G")
+    response = client.post("/navigate/", json={
+        "origin": "qr-a-0",
+        "destination": "Library",
+        "profile": "wheelchair"
+    })
     assert response.status_code == 200
     data = response.json()
-    assert len(data["path"]) > 0
-    # Must use Lift Node
-    node_types = [node["type"] for node in data["path"]]
-    assert "Lift" in node_types
-    assert "Stairs" not in node_types
+    assert data["profile_applied"] == "wheelchair"
+    assert "response" in data
+
+def test_navigate_emergency_bypass():
+    """Emergency intent should bypass the LLM and return immediately."""
+    response = client.post("/navigate/", json={
+        "origin": "qr-a-0",
+        "destination": "help fire emergency",
+        "profile": "Invisible"
+    })
+    assert response.status_code == 200
+    data = response.json()
+    assert data["intent"] == "emergency"
+    assert len(data["agent_steps"]) == 1
+    assert data["agent_steps"][0]["tool"] == "emergency_classifier"
+

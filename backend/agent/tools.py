@@ -8,8 +8,8 @@ def route_query(start_node: str, end_node: str, profile: str) -> str:
     Calculates the best route from start_node to end_node tailored for the given disability profile.
     
     Args:
-        start_node (str): The ID of the starting location (e.g., 'qr-a-0' or 'room-a-21').
-        end_node (str): The ID of the destination (e.g., 'room-a-21').
+        start_node (str): The EXACT node ID of the starting location (e.g., 'qr-a-0').
+        end_node (str): The EXACT node ID of the destination (e.g., 'room-a-21'). CRITICAL: Do NOT pass human-readable names like 'Library'. You MUST use `resolve_room` first to get the ID.
         profile (str): The user's disability profile (e.g., wheelchair, vision_impaired).
         
     Returns:
@@ -91,8 +91,14 @@ def profile_detect(user_input: str) -> str:
 
 
 @tool
-def flag_obstacle(location: str, description: str) -> str:
+def flag_obstacle(node_id: str, description: str) -> str:
     """
     Reports a temporary obstacle to update the shadow map.
+    
+    Args:
+        node_id (str): The EXACT node ID that is blocked (e.g., 'lift-a', 'corr-a-0'). You MUST pass a valid node ID, not a human readable name.
+        description (str): Details of the obstacle.
     """
-    return f"Obstacle flagged at {location}: {description}"
+    db_client.flag_shadow_node(node_id)
+    return f"Obstacle flagged at node {node_id}: {description}. It is now blocked on the shadow map."
+

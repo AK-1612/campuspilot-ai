@@ -11,19 +11,56 @@ const API_BASE_URL = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
 // Helper to simulate network latency
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
-export async function sendChatMessage(query: string, origin: string, profile: NavigationMode) {
+// ─── Agent Query Types ──────────────────────────────────────────────────────
+
+export interface AgentStep {
+  tool: string;
+  input: string;
+  output: string;
+}
+
+export interface NavigateResponse {
+  response: string;
+  route_data: any | null;
+  agent_steps: AgentStep[];
+  intent: string | null;
+  profile_applied: string | null;
+}
+
+/**
+ * Send a natural-language query to the CampusPilot agent backend.
+ * Returns the LLM response, structured route data, and real tool traces.
+ * Falls back to offline route simulation when the backend is unreachable.
+ */
+export async function queryAgent(
+  origin: string,
+  destination: string,
+  profile: NavigationMode,
+  qr_location?: string
+): Promise<NavigateResponse> {
   if (API_BASE_URL) {
-    const response = await fetch(`${API_BASE_URL}/navigate/chat`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ query, origin, profile })
-    });
-    if (response.ok) {
-      return await response.json();
+    try {
+      const res = await fetch(`${API_BASE_URL}/navigate/`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ origin, destination, profile, qr_location })
+      });
+      if (res.ok) return await res.json();
+    } catch (err) {
+      console.warn('Agent query failed, using fallback', err);
     }
-    throw new Error('Failed to process chat with AI agent');
   }
-  throw new Error('API_BASE_URL not set for agent communication');
+
+  // Offline fallback — simulate with existing getRoute logic
+  await sleep(1200);
+  const routes = await getRoute(origin, destination, profile);
+  return {
+    response: routes[0]?.features?.[0] || 'Route calculated offline.',
+    route_data: null,
+    agent_steps: [],
+    intent: 'navigate',
+    profile_applied: profile
+  };
 }
 
 /**
