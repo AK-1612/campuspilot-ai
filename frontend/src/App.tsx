@@ -107,6 +107,7 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<'home' | 'routes' | 'scan' | 'saved' | 'access'>('home');
   const [accessibilityMode, setAccessibilityMode] = useState<NavigationMode>('wheelchair');
   const [sosActive, setSosActive] = useState(false);
+  const [isQrScanning, setIsQrScanning] = useState(false);
 
   // Search & dynamic route states
   const [searchQuery, setSearchQuery] = useState('');
@@ -164,80 +165,94 @@ export default function App() {
   const [isFetchingNearby, setIsFetchingNearby] = useState(false);
   const nearbyFetchedRef = useRef(false);
 
-  // Fetch nearby POIs + localities once userLocation becomes available
+  // Fetch nearby POIs + localities on mount — does NOT depend on CampusMap callback.
+  // Requests GPS directly so it works even before the map fires onUserLocationChange.
   useEffect(() => {
-    if (!userLocation || nearbyFetchedRef.current) return;
+    if (nearbyFetchedRef.current) return;
     nearbyFetchedRef.current = true;
-    const [lat, lng] = userLocation;
     setIsFetchingNearby(true);
 
-    // Query 1: specific POIs within 2km
-    const poiQuery = [
-      '[out:json][timeout:15];',
-      '(',
-      `node["name"]["amenity"~"restaurant|cafe|bar|bank|hospital|pharmacy|fuel|supermarket|school|university|library|cinema|fast_food|police|place_of_worship|marketplace"](around:2000,${lat},${lng});`,
-      `node["name"]["shop"~"mall|supermarket|convenience|department_store|clothes|electronics"](around:2000,${lat},${lng});`,
-      `node["name"]["leisure"~"park|sports_centre|stadium|swimming_pool"](around:1500,${lat},${lng});`,
-      `node["name"]["tourism"~"hotel|museum|attraction|hostel"](around:2000,${lat},${lng});`,
-      ');',
-      'out body 20;'
-    ].join('');
+    const doFetch = (lat: number, lng: number) => {
+      // Query 1: specific venues within 2 km
+      const poiQuery = [
+        '[out:json][timeout:15];',
+        '(',
+        `node["name"]["amenity"~"restaurant|cafe|bar|bank|hospital|pharmacy|fuel|supermarket|school|university|library|cinema|fast_food|police|place_of_worship|marketplace"](around:2000,${lat},${lng});`,
+        `node["name"]["shop"~"mall|supermarket|convenience|department_store|clothes|electronics"](around:2000,${lat},${lng});`,
+        `node["name"]["leisure"~"park|sports_centre|stadium|swimming_pool"](around:1500,${lat},${lng});`,
+        `node["name"]["tourism"~"hotel|museum|attraction|hostel"](around:2000,${lat},${lng});`,
+        ');',
+        'out body 20;'
+      ].join('');
 
-    // Query 2: popular localities/suburbs/neighbourhoods within 8km
-    const localityQuery = [
-      '[out:json][timeout:15];',
-      '(',
-      `node["name"]["place"~"suburb|neighbourhood|quarter|district|city_district|borough|town|village"](around:8000,${lat},${lng});`,
-      ');',
-      'out body 20;'
-    ].join('');
+      // Query 2: localities / suburbs / neighbourhoods within 8 km
+      const localityQuery = [
+        '[out:json][timeout:15];',
+        '(',
+        `node["name"]["place"~"suburb|neighbourhood|quarter|district|city_district|borough|town|village"](around:8000,${lat},${lng});`,
+        ');',
+        'out body 20;'
+      ].join('');
 
-    const fetchOverpass = (q: string) =>
-      fetch('https://overpass-api.de/api/interpreter', {
-        method: 'POST',
-        body: `data=${encodeURIComponent(q)}`,
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      }).then(r => r.json());
+      const fetchOverpass = (q: string) =>
+        fetch('https://overpass-api.de/api/interpreter', {
+          method: 'POST',
+          body: `data=${encodeURIComponent(q)}`,
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        }).then(r => r.json());
 
-    Promise.allSettled([fetchOverpass(poiQuery), fetchOverpass(localityQuery)])
-      .then(([poiResult, localityResult]) => {
-        const poiEls = poiResult.status === 'fulfilled' ? (poiResult.value.elements || []) : [];
-        const localityEls = localityResult.status === 'fulfilled' ? (localityResult.value.elements || []) : [];
+      Promise.allSettled([fetchOverpass(poiQuery), fetchOverpass(localityQuery)])
+        .then(([poiResult, localityResult]) => {
+          const poiEls = poiResult.status === 'fulfilled' ? (poiResult.value.elements || []) : [];
+          const localityEls = localityResult.status === 'fulfilled' ? (localityResult.value.elements || []) : [];
 
-        const toPlace = (el: any, prefix: string) => ({
-          id: `${prefix}-${el.id}`,
-          name: el.tags.name as string,
-          icon: getPoiIcon(el.tags),
-          lat: el.lat as number,
-          lng: el.lon as number,
-          distKm: haversineKm(lat, lng, el.lat, el.lon),
-        });
+          const toPlace = (el: any, prefix: string) => ({
+            id: `${prefix}-${el.id}`,
+            name: el.tags.name as string,
+            icon: getPoiIcon(el.tags),
+            lat: el.lat as number,
+            lng: el.lon as number,
+            distKm: haversineKm(lat, lng, el.lat, el.lon),
+          });
 
-        const pois = poiEls
-          .filter((el: any) => el.tags?.name && el.lat && el.lon)
-          .map((el: any) => toPlace(el, 'poi'));
+          const pois = poiEls
+            .filter((el: any) => el.tags?.name && el.lat && el.lon)
+            .map((el: any) => toPlace(el, 'poi'));
 
-        const localities = localityEls
-          .filter((el: any) => el.tags?.name && el.lat && el.lon)
-          .map((el: any) => toPlace(el, 'loc'));
+          const localities = localityEls
+            .filter((el: any) => el.tags?.name && el.lat && el.lon)
+            .map((el: any) => toPlace(el, 'loc'));
 
-        // Merge: localities first (sorted by dist), then POIs; deduplicate by name
-        const seen = new Set<string>();
-        const merged = [...localities, ...pois]
-          .sort((a, b) => a.distKm - b.distKm)
-          .filter(p => {
-            const key = p.name.toLowerCase();
-            if (seen.has(key)) return false;
-            seen.add(key);
-            return true;
-          })
-          .slice(0, 12);
+          // Localities sorted first, then POIs; deduplicate by name
+          const seen = new Set<string>();
+          const merged = [...localities, ...pois]
+            .sort((a, b) => a.distKm - b.distKm)
+            .filter(p => {
+              const key = p.name.toLowerCase();
+              if (seen.has(key)) return false;
+              seen.add(key);
+              return true;
+            })
+            .slice(0, 12);
 
-        setNearbyPlaces(merged);
-      })
-      .catch(() => { /* silently fall back to default chips */ })
-      .finally(() => setIsFetchingNearby(false));
-  }, [userLocation]);
+          setNearbyPlaces(merged);
+        })
+        .catch(() => { /* silently keep fallback chips */ })
+        .finally(() => setIsFetchingNearby(false));
+    };
+
+    // Ask GPS directly — no reliance on CampusMap callback
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => doFetch(pos.coords.latitude, pos.coords.longitude),
+        () => doFetch(19.1334, 72.9133), // fallback: IIT Bombay
+        { enableHighAccuracy: false, timeout: 8000, maximumAge: 60000 }
+      );
+    } else {
+      doFetch(19.1334, 72.9133);
+    }
+  }, []); // runs once on mount — independent of map state
+
 
   // Triggering SOS Action
   const triggerSos = () => {

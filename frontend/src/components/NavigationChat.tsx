@@ -5,7 +5,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { Send, Mic, Cpu, Sparkles, Navigation, Volume2, AlertTriangle, Compass, Bot, CheckCircle, X } from 'lucide-react';
-import { NavigationMode } from '../types';
+import { NavigationMode, RouteOption } from '../types';
 import { getRoute } from '../services/api';
 
 interface Message {
@@ -49,6 +49,7 @@ Where would you like to navigate today? You can ask me in plain language, e.g. "
   const [inputVal, setInputVal] = useState('');
   const [isVoiceListening, setIsVoiceListening] = useState(false);
   const [agentTyping, setAgentTyping] = useState(false);
+  const [routeOptions, setRouteOptions] = useState<RouteOption[] | null>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
   // Auto scroll to bottom
@@ -119,55 +120,55 @@ Where would you like to navigate today? You can ask me in plain language, e.g. "
       return copy;
     });
 
-    // Step 4: Final Plan Generation simulation
-    await new Promise(resolve => setTimeout(resolve, 1200));
+    // Step 4: Generate real route using backend API
+    // Extract origin and destination (using placeholder values for now)
+    const origin = 'Ground Floor Entrance Lobby';
+    const destination = 'Room 204';
     
-    // Perform simulated fetch
-    let routeDesc = '';
-    let hasStairs = false;
-    let origin = 'Ground Floor Entrance Lobby';
-    let dest = 'Room 204';
-    
-    if (currentProfileMode === 'wheelchair') {
-      routeDesc = 'I have planned a step-free route for you avoiding stairs by utilizing Lift 2 to the 2nd floor, and taking wide ramp corridors.';
-      hasStairs = false;
-    } else if (currentProfileMode === 'vision') {
-      routeDesc = 'I have mapped a route equipped with tactile pavement strips and audio beacons, avoiding the temporary maintenance wet floor in Corridor B.';
-      hasStairs = false;
-    } else {
-      routeDesc = 'I have mapped a direct route for you utilizing the central staircase to the second floor, which is the fastest route.';
-      hasStairs = true;
+    // Call the API to get route options based on profile
+    let fetchedRoutes: RouteOption[] = [];
+    try {
+      fetchedRoutes = await getRoute(origin, destination, currentProfileMode);
+    } catch (err) {
+      console.error('Failed to fetch route from backend:', err);
+      // Fallback to a simple message if API fails
     }
-
+    
+    // Build a descriptive message from the first (optimal) option if available
+    let routeMessage = '';
+    if (fetchedRoutes.length > 0) {
+      const opt = fetchedRoutes[0];
+      routeMessage = `### 🗺️ ${opt.name}\n- Estimated time: ${opt.estMinutes} minutes\n- Distance: ${opt.distanceMiles} miles\n- Features: ${opt.features.join(', ')}\n${opt.warnings.length ? '- Warnings: ' + opt.warnings.join(', ') + '\n' : ''}`;
+    } else {
+      // Fallback description similar to previous simulation
+      routeMessage = `### 🗺️ Route Mapped (Simulated)\nI could not retrieve a live route, so using a simulated plan.\n**Origin:** ${origin}\n**Destination:** ${destination}\n`;
+    }
+    
+    // Update chat with the route information and action button
     setMessages(prev => {
       const copy = [...prev];
       const last = copy[copy.length - 1];
-      last.text = `### 🗺️ Route Mapped Successfully
-${routeDesc}
-
-**Origin:** ${origin}
-**Destination:** ${dest}
-**Profile Constraints applied:** No stairs ${hasStairs ? '❌ (stairs used as profile is standard)' : '✔️ (step-free enforced)'}
-
-Click below to start your real-time visual guide.`;
+      last.text = `${routeMessage}\n\nClick below to start your real-time visual guide.`;
       
       if (last.agentSteps) {
         last.agentSteps.push({
           stepName: '4. Generate Response',
-          details: 'Cypher traversal completed. Outputting optimal navigation instructions.',
+          details: 'Fetched route options from backend and prepared response.',
           status: 'success'
         });
       }
-
+      
       last.actionButton = {
         label: '🚀 Start Guidance Now',
         onClick: () => {
-          onNavigateToDestination(origin, dest);
+          onNavigateToDestination(origin, destination);
         }
       };
-      
       return copy;
     });
+    
+    // Store the fetched routes for later use (e.g., incident reporting)
+    setRouteOptions(fetchedRoutes);
     
     setAgentTyping(false);
   };

@@ -134,7 +134,7 @@ export async function getRoute(
 export async function lookupQR(code: string): Promise<any> {
   if (API_BASE_URL) {
     try {
-      const response = await fetch(`${API_BASE_URL}/qr/${code}`);
+      const response = await fetch(`${API_BASE_URL}/qr/lookup?code=${encodeURIComponent(code)}`);
       if (response.ok) {
         const data = await response.json();
         unlockBuildingMap(data.building);

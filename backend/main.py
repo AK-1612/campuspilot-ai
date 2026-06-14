@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from backend.routers import qr, navigate
+from backend.routers import qr, navigate, alert
 
 app = FastAPI(
     title="CampusPilot AI API",
@@ -20,6 +20,7 @@ app.add_middleware(
 # Include routers
 app.include_router(qr.router)
 app.include_router(navigate.router)
+app.include_router(alert.router)
 
 @app.get("/")
 def read_root():
