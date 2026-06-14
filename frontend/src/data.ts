@@ -149,7 +149,7 @@ export const RECENT_ROUTES = [
   }
 ];
 
-// Navigation step list simulation (for Step 3 of 7 page layout)
+// Navigation step list for the indoor floor blueprint view.
 export const DYNAMIC_STEPS: NavStep[] = [
   {
     stepIndex: 1,
@@ -201,7 +201,3 @@ export const DYNAMIC_STEPS: NavStep[] = [
     distanceAhead: 'Dest'
   }
 ];
-
-export const CAMPUS_MAP_LIGHT = 'https://lh3.googleusercontent.com/aida-public/AB6AXuBc63YJ89evjA0LYbpXwN7waJXNQ6uoKuIxsRje4YSiE6hWIQwMfL6_E1pyPl6zgsOjrW89sgojW_kg5el0fbb-9VUusvEzx3UqDdEECI-ZPSEmby9rKyOId4nu3nzOvWuM6CvgMXC0vTL2XLuSaafQoNvTOK6MIghPO4k3A6obsWt06xzVxfe8_6sQIBlovVtH2zd_I6sA1ph2j-fV6cgvqQUF1DLd-malqznE0ldZualZNpRhHTFvRkhKf14jGXJ0AUqYZJSaVA8';
-export const CAMPUS_MAP_DARK = 'https://lh3.googleusercontent.com/aida-public/AB6AXuCoWEAw2jDi6LQGOd1DeDp5jICDwK1l24PFPj_HSk1UmIfUY0duMlWx-C_kZRuf8bedxUzu8vwbLq6YmxhkNzeBo12fut4A-I-knmzoFu0SsFmxUj95E3l2AWu0HcLJGscjY3JpKezUyzn-4EtkOFIkSxGVaX6_Ez2Synv1HRpZz5Hd4dyydaQz_zllivwUwSIXFsnsSxiOa9s29jWx_y6Q0KZ1bspURvag6-RKqjwPbBtVKwrNYh1v0iw2fnXAo8vyYAObR-mdG68';
-export const CAMERA_VISUAL = 'https://lh3.googleusercontent.com/aida-public/AB6AXuA81Orzb2q97WFGECQ_mnE4LFjDMDqT3yEXVoFKlwPI1hkc_cNzoD57YoYkmF_09wZEEVAEId0-Bs4pVehxDH6i3HlXelrTZryVZ08PLy2fuaKliOu-yFWNTFJ5AZE7ivwgVggFs9NJNyFVeW6MHrmLiJPda9_1gIgwnvVKQyWbI7moi3MlmIwxZPGY-zYzYqHkJEeMXzQmZGKE6sawAEJk4XfQJnyUPeHqYTi4GIUN3yGWyPYn7IW12Fw5sqIj5j7Z9nuw3wDz-t0';

@@ -691,10 +691,10 @@ export default function App() {
 
                               {/* Fallback chips when no location / fetch failed */}
                               {!isFetchingNearby && nearbyPlaces.length === 0 && [
-                                { id: 'dorm', name: 'Dormitory', icon: '🏠' },
-                                { id: 'lib', name: 'Main Library', icon: '🏛️' },
-                                { id: 'science', name: 'Science Lab', icon: '🔬' },
-                                { id: 'cafe', name: 'Cafeteria', icon: '☕' }
+                                { id: 'dorm', name: 'Dormitory' },
+                                { id: 'lib', name: 'Main Library' },
+                                { id: 'science', name: 'Science Lab' },
+                                { id: 'cafe', name: 'Cafeteria' }
                               ].map(spot => (
                                 <button
                                   key={spot.id}
@@ -704,7 +704,6 @@ export default function App() {
                                   }}
                                   className="flex-shrink-0 flex items-center gap-1.5 bg-zinc-100 border border-zinc-200 rounded-full py-2 px-3.5 shadow-sm hover:bg-zinc-200 font-sans font-bold text-xs text-zinc-700 transition-colors whitespace-nowrap"
                                 >
-                                  <span className="text-sm">{spot.icon}</span>
                                   {spot.name}
                                 </button>
                               ))}
@@ -1017,9 +1016,9 @@ export default function App() {
             </svg>
           </span>
           <div className="text-left">
-            <h4 className="font-bold text-sm leading-tight text-white">Report Submitted!</h4>
+            <h4 className="font-bold text-sm leading-tight text-white">Report Submitted</h4>
             <p className="text-[11px] text-teal-100 mt-1 leading-normal">
-              Facility staff has been notified. This report is now active in the live routing engines.
+              Facility staff have been notified. This report is now active in the routing engine.
             </p>
           </div>
         </div>
